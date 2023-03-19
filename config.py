@@ -13,8 +13,8 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # seed_everything()  # If you want deterministic behavior
 NUM_WORKERS = 4
 BATCH_SIZE = 32
-IMAGE_SIZE = 416
-NUM_CLASSES = 20  # change: this will depend on our dataset
+IMAGE_SIZE = 416 # change based on kitti
+NUM_CLASSES = 7  # change: this will depend on our dataset. changed based on kitti
 LEARNING_RATE = 1e-5
 WEIGHT_DECAY = 1e-4
 NUM_EPOCHS = 100
@@ -31,6 +31,8 @@ LABEL_DIR = DATASET + "/labels/"
 
 # change: these can change based on our dataset. check notion cng 492/Dataset/anchors
 # we can check which anchor values dist-yolo used.
+# dist-yolo anchors: 10,13,  16,30,  33,23,  30,61,  62,45,  59,119,  116,90,  156,198,  373,326
+# maybe normalization will be needed (scale to be between (0-1))
 ANCHORS = [
     [(0.28, 0.22), (0.38, 0.48), (0.9, 0.78)],
     [(0.07, 0.15), (0.15, 0.11), (0.14, 0.29)],
