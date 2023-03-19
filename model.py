@@ -148,20 +148,27 @@ class YOLOv3(nn.Module):
         self.in_channels = in_channels
         self.layers = self._create_conv_layers()
 
+    # The forward function is the method that defines the forward pass of a PyTorch neural network.
+    # When we call the model object with an input tensor (x in this case),
+    # PyTorch automatically calls the forward function of the model and passes the input tensor as an argument.
+    # The output tensor out is the result of applying the forward function of the YOLOv3 model to the input tensor x.
     def forward(self, x):
         outputs = []
         route_connections = []
         for layer in self.layers:
             if isinstance(layer, ScalePrediction):
+                # append its output to a list and later on compute the loss for each of the predictions separetely.
                 outputs.append(layer(x))
                 continue
 
             x = layer(x)
 
             if isinstance(layer, ResidualBlock) and layer.num_repeats == 8:
+                # Keep track of the layers that are routed forward
                 route_connections.append(x)
 
             elif isinstance(layer, nn.Upsample):
+                # When we encounter an upsamling layer we will concatenate the output with the last route previously found
                 x = torch.cat([x, route_connections[-1]], dim=1)
                 route_connections.pop()
 
