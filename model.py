@@ -15,6 +15,9 @@ List is structured by "B" indicating a residual block followed by the number of 
 "S" is for a scale prediction block and computing the yolo loss
 "U" is for upsampling the feature map
 """
+# change: we might need to add additional conv layers to perform distance estimation
+# I suppose the additional layers need to be added to darknet because that is where 
+# feature extraction is taking place. consider how scaling might affect distance estimation.
 config = [
     (32, 3, 1),
     (64, 3, 2),
@@ -56,6 +59,7 @@ config = [
 # with stability and speed of training.
 # relu is rectified linear unit activation function.
 # nn.module is the base class for all NN.
+
 class CNNBlock(nn.Module):
     def __init__(self, in_channels, out_channels, bn_act=True, **kwargs):
         super(CNNBlock, self).__init__()
@@ -106,6 +110,7 @@ class ResidualBlock(nn.Module):
 
 # The last predefined block we will use is the ScalePrediction which is the last two
 # convolutional layers leading up to the prediction for each scale. 
+
 class ScalePrediction(nn.Module):
     def __init__(self, in_channels, num_classes):
         super().__init__()
@@ -127,3 +132,86 @@ class ScalePrediction(nn.Module):
             .permute(0, 1, 3, 4, 2)
         )
 
+
+# Putting it all together to YOLOv3
+# We will now put it all together to the YOLOv3 model for the detection task and distance estimation. 
+# Most of the action takes place in the _create_conv_layers function where
+# we build the model using the blocks defined above. Essentially we will just
+# loop through the config list that we created above and add the blocks defined
+# above in the correct order.
+
+class YOLOv3(nn.Module):
+    # change num_classes. this will depend on our dataset
+    def __init__(self, in_channels=3, num_classes=80):
+        super(YOLOv3, self).__init__()
+        self.num_classes = num_classes
+        self.in_channels = in_channels
+        self.layers = self._create_conv_layers()
+
+    def forward(self, x):
+        outputs = []
+        route_connections = []
+        for layer in self.layers:
+            if isinstance(layer, ScalePrediction):
+                outputs.append(layer(x))
+                continue
+
+            x = layer(x)
+
+            if isinstance(layer, ResidualBlock) and layer.num_repeats == 8:
+                route_connections.append(x)
+
+            elif isinstance(layer, nn.Upsample):
+                x = torch.cat([x, route_connections[-1]], dim=1)
+                route_connections.pop()
+
+        return outputs
+
+
+    def _create_conv_layers(self):
+        layers = nn.ModuleList()
+        in_channels = self.in_channels
+
+        for module in config:
+            # tuple (filters, kernel size, stride)  is for CNNBlock
+            if isinstance(module, tuple):
+                out_channels, kernel_size, stride = module
+                layers.append(
+                    CNNBlock(
+                        in_channels,
+                        out_channels,
+                        kernel_size=kernel_size,
+                        stride=stride,
+                        padding=1 if kernel_size == 3 else 0,
+                    )
+                )
+                in_channels = out_channels
+
+            # list is for Residual Block
+            elif isinstance(module, list):
+                num_repeats = module[1]
+                layers.append(
+                    ResidualBlock(
+                        in_channels,
+                        num_repeats=num_repeats,
+                    )
+                )
+
+            # string is either for Scale Prediction block or
+            # Upsampling the feature map and concatenating with a previous layer. 
+            elif isinstance(module, str):
+                if module == "S":
+                    layers += [
+                        ResidualBlock(in_channels, use_residual=False, num_repeats=1),
+                        CNNBlock(in_channels, in_channels // 2, kernel_size=1),
+                        ScalePrediction(in_channels // 2, num_classes=self.num_classes),
+                    ]
+                    in_channels = in_channels // 2
+
+                elif module == "U":
+                    layers.append(
+                        nn.Upsample(scale_factor=2),
+                    )
+                    in_channels = in_channels * 3
+
+        return layers
