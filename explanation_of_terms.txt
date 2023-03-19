@@ -1,0 +1,36 @@
+line 78 (Residual blocks):
+
+Q) why are two CNNBlocks being used and the kernel size of the first one is 1 and second one is 3?
+
+A) The ResidualBlock class uses two CNNBlock objects in each repetition of the block. The first CNNBlock reduces the number of channels by half, while the second CNNBlock preserves the number of channels.
+
+The reason for using two CNNBlock objects is to reduce the computational cost of the block, while maintaining the same expressive power. The first CNNBlock with a kernel size of 1 is known as a bottleneck layer, and it is used to reduce the number of input channels before applying the more computationally expensive convolutional layer with a kernel size of 3. The bottleneck layer reduces the dimensionality of the input, allowing the subsequent convolutional layer to have fewer parameters to learn.
+
+The bottleneck layer with a kernel size of 1 is used because it has fewer parameters than a convolutional layer with a larger kernel size. The number of parameters in a convolutional layer with a kernel size of k is proportional to k^2, so using a smaller kernel size can significantly reduce the number of parameters in the layer. By reducing the number of parameters, the bottleneck layer helps to reduce the computational cost of the block.
+
+The second CNNBlock with a kernel size of 3 preserves the number of channels and applies the actual convolutional transformation to the input. This layer is responsible for learning the feature representations from the input and extracting the features that are relevant for the task at hand.
+
+Using two CNNBlock objects with different kernel sizes is a common practice in residual blocks and has been shown to be effective in many state-of-the-art neural networks.
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+Q) the number of input channels refers to the input neurons right and the output channel refers to the output neuron values?
+
+A) In the context of convolutional neural networks (CNNs), the term "input channels" typically refers to the number of feature maps in the input tensor, which correspond to the number of neurons in the input layer of the CNN. Similarly, "output channels" refers to the number of feature maps in the output tensor, which correspond to the number of neurons in the output layer of the CNN.
+
+In a CNN, each feature map in the input tensor corresponds to a specific feature of the input image, such as the color intensity or texture. Each neuron in a feature map is connected to a small local region of the input image, known as the receptive field. The output of a neuron is computed by applying a convolution operation between the values in the receptive field and a set of learnable filters, which are shared across all neurons in the feature map.
+
+The output of the convolution operation is a single value, which is assigned to the corresponding neuron in the output feature map. Therefore, the number of output channels in a convolutional layer determines the number of filters that are applied to the input tensor and the number of feature maps in the output tensor. The output feature maps can be thought of as a set of activation maps, each corresponding to a different learned filter.
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+Q) then does it mean that the number of output channels depends on the number of filters applied meaning equal to the number of output feature maps?
+
+A) Yes, that is correct. In a convolutional layer of a CNN, the number of output channels (or feature maps) is equal to the number of filters applied in that layer. Each filter is convolved with the input tensor to produce a single output feature map, so the number of output channels is the same as the number of filters.
+
+Each output feature map corresponds to a different filter in the layer and represents a learned representation of a specific feature or pattern in the input data. The features captured by different filters can be complementary or redundant, depending on the architecture of the CNN and the specific task being performed.
+
+The number of output channels can be specified as a hyperparameter when defining a convolutional layer in a CNN. In general, increasing the number of output channels (i.e., using more filters) can increase the representational power of the layer and improve the performance of the network, but at the cost of increased computational complexity and memory requirements.
