@@ -33,7 +33,9 @@ class YoloLoss(nn.Module):
             )
 
             # ==================== #
-            #   FOR OBJECT LOSS    #
+            #   FOR OBJECT LOSS
+            #   This is for anchors that predicted that an object exists.
+            #   The loss will include IOU (intersection over union)#
             # ==================== #
 
             anchors = anchors.reshape(1, 3, 1, 1, 2)
@@ -41,6 +43,14 @@ class YoloLoss(nn.Module):
                                   dim=-1)
             ious = intersection_over_union(box_preds[obj], target[..., 1:5][obj]).detach()
             object_loss = self.mse(self.sigmoid(predictions[..., 0:1][obj]), ious * target[..., 0:1][obj])
+
+            # ================== #
+            #   FOR CLASS LOSS   #
+            # ================== #
+
+            class_loss = self.entropy(
+                (predictions[..., 5:][obj]), (target[..., 5][obj].long()),
+            )
 
 
 
