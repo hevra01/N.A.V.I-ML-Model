@@ -17,3 +17,20 @@ class YoloLoss(nn.Module):
         self.lambda_box = 10
         # change: define a loss for distance as well.
 
+        def forward(self, predictions, target, anchors):
+            # Check where obj and noobj (we ignore if target == -1)
+            obj = target[..., 0] == 1  # in paper this is Iobj_i
+            noobj = target[..., 0] == 0  # in paper this is Inoobj_i
+
+            # ======================= #
+            #   FOR NO OBJECT LOSS
+            #   This is to penalize anchors that didn't predict the existence of an object
+            #   by only the objectness loss and not misclassification or bounding box loss
+            # ======================= #
+
+            no_object_loss = self.bce(
+                (predictions[..., 0:1][noobj]), (target[..., 0:1][noobj]),
+            )
+
+
+
