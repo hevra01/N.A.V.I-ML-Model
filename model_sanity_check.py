@@ -6,7 +6,7 @@ def model_sanity_test():
     model = YOLOv3(num_classes=num_classes)
     img_size = 416
 
-    # Based on chatgpt, the first dimension of the input tensor (2 in this case) represents the batch size.
+    # The first dimension of the input tensor (2 in this case) represents the batch size.
     # The batch size is typically specified during the training phase when the data is loaded into the model.
     # The batch size is defined by the dataloader, which is used to load the data into the model during training.
     # The batch size is specified in the dataloader's constructor, where the batch_size parameter is passed.
@@ -18,6 +18,9 @@ def model_sanity_test():
     # In YOLOv3 the grid sizes used are [13, 26, 52] for an image size of 416x416.
     # If you use another image size the first grid size will be the image size
     # divided by 32 and the others will be a multiple of two of the previous one.
+    # the second dimension, "3" represents the number of anchors.
+    # the forward function of the model, gives predictions in three different scales.
+    # hence, the output has out[0], out[1], out[2]
     # change 5 to 6 due to distance estimation output
     assert out[0].shape == (2, 3, img_size//32, img_size//32, 5 + num_classes)
     assert out[1].shape == (2, 3, img_size//16, img_size//16, 5 + num_classes)
