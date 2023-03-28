@@ -1,6 +1,6 @@
 # this file includes the model architecture
 # "change" is the keyword used to show the places where the code needs to be changed
-# according to dist-yolo rather then sole yolo 
+# according to dist-yolo rather than sole yolo
 
 import torch
 import torch.optim as optim
@@ -117,18 +117,18 @@ class ScalePrediction(nn.Module):
         self.pred = nn.Sequential(
             CNNBlock(in_channels, 2 * in_channels, kernel_size=3, padding=1),
             CNNBlock(
-                # change
-                # 5 refers to the object score and four bounding box coordinates.
-                # this num needs to increase to 6 because we will have distance prediction as well.
-                2 * in_channels, (num_classes + 5) * 3, bn_act=False, kernel_size=1
+                # it is 6 + num_classes because we added distance to model's prediction
+                # 0th index is objectness, 1st to 4th is bounding box infor, 5th is dist
+                2 * in_channels, (num_classes + 6) * 3, bn_act=False, kernel_size=1
             ),
         )
         self.num_classes = num_classes
 
     def forward(self, x):
         return (
-            self.pred(x) # change 5 to 6
-            .reshape(x.shape[0], 3, self.num_classes + 5, x.shape[2], x.shape[3])
+            self.pred(x)
+             # 3 represents anchors_per_scale
+            .reshape(x.shape[0], 3, self.num_classes + 6, x.shape[2], x.shape[3])
             .permute(0, 1, 3, 4, 2)
         )
 
@@ -141,8 +141,8 @@ class ScalePrediction(nn.Module):
 # above in the correct order.
 
 class YOLOv3(nn.Module):
-    # change num_classes. this will depend on our dataset
-    def __init__(self, in_channels=3, num_classes=80):
+    # number of classes is based on KITTI that is 7
+    def __init__(self, in_channels=3, num_classes=7):
         super(YOLOv3, self).__init__()
         self.num_classes = num_classes
         self.in_channels = in_channels

@@ -21,9 +21,10 @@ def model_sanity_test():
     # the second dimension, "3" represents the number of anchors.
     # the forward function of the model, gives predictions in three different scales.
     # hence, the output has out[0], out[1], out[2]
-    # change 5 to 6 due to distance estimation output
-    assert out[0].shape == (2, 3, img_size//32, img_size//32, 5 + num_classes)
-    assert out[1].shape == (2, 3, img_size//16, img_size//16, 5 + num_classes)
-    assert out[2].shape == (2, 3, img_size//8, img_size//8, 5 + num_classes)
+    # it is 6 + num_classes because we added distance to model's prediction
+    # 0th index is objectness, 1st to 4th is bounding box infor, 5th is dist
+    assert out[0].shape == (2, 3, img_size//32, img_size//32, 6 + num_classes)
+    assert out[1].shape == (2, 3, img_size//16, img_size//16, 6 + num_classes)
+    assert out[2].shape == (2, 3, img_size//8, img_size//8, 6 + num_classes)
 
 model_sanity_test()
