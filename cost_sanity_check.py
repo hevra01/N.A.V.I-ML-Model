@@ -9,9 +9,7 @@ num_classes = 7 # num of classes in kitti dataset
 # Create a dummy tensors for testing purposes
 # 2 represents the batch size and 3 represents the anchor number
 predictions = torch.randn((2, 3, img_size//32, img_size//32, 5 + num_classes))
-#predictions[..., 0] = 1
 target = torch.randn((2, 3, img_size//32, img_size//32, 5 + num_classes))
-#target[..., 0] = 1
 anchors = torch.tensor([(1, 1), (2, 2), (3, 3)])
 
 # Initialize the YoloLoss module
