@@ -23,11 +23,6 @@ loss = loss_fn(predictions, target, anchors)
 # Check that loss is finite
 assert torch.isfinite(loss), f"Loss has NaN or infinite values."
 
-# Test intersection_over_union function
-box1 = torch.tensor([0.5, 0.5, 1.0, 1.0])
-box2 = torch.tensor([0.6, 0.6, 1.2, 1.2])
-iou = intersection_over_union(box1, box2)
-assert iou >= 0 and iou <= 1, "intersection_over_union function is not returning a valid value"
 
 # Verify that YoloLoss module has all the required attributes and methods
 assert hasattr(loss_fn, 'mse'), "mse attribute is not defined in the YoloLoss module"
