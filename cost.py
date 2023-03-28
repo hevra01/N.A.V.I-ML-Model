@@ -51,7 +51,7 @@ def intersection_over_union(boxes_preds, boxes_labels, box_format="midpoint"):
 class YoloLoss(nn.Module):
     def __init__(self):
         super().__init__()
-        self.mse = nn.MSELoss # for the bounding box predictions
+        self.mse = nn.MSELoss # for the bounding box predictions, and distance estimation
         self.bce = nn.BCEWithLogitsLoss() # for objectness prediction
         self.entropy = nn.CrossEntropyLoss() # for class prediction
         self.sigmoid = nn.Sigmoid() # activation function
@@ -61,6 +61,7 @@ class YoloLoss(nn.Module):
         self.lambda_noobj = 10
         self.lambda_obj = 1
         self.lambda_box = 10
+        self.lambda_dist = 10  # for the distance prediction
         # change: define a loss for distance as well.
 
     def forward(self, predictions, target, anchors):
@@ -104,7 +105,21 @@ class YoloLoss(nn.Module):
         #   FOR CLASS LOSS   #
         # ================== #
         class_loss = self.entropy(
-            (predictions[..., 5:][obj]), (target[..., 5][obj].long()),
+            # indexing all the values from the 6th channel to the end of the tensor.
+            # because until the 6th channel it contains info about: 1 for objectness,
+            # bounding box (4 values), and 1 for distance. indexing starts from 0.
+            (predictions[..., 6:][obj]), (target[..., 6][obj].long()),
+        )
+
+        # ==================== #
+        #   FOR DISTANCE LOSS   #
+        # ==================== #
+
+        dist_targets = target[..., 5][obj]
+        dist_predictions = predictions[..., 5][obj]
+
+        dist_loss = self.mse(
+            dist_predictions, dist_targets,
         )
 
         print("__________________________________")
@@ -112,6 +127,7 @@ class YoloLoss(nn.Module):
         print(self.lambda_obj * object_loss)
         print(self.lambda_noobj * no_object_loss)
         print(self.lambda_class * class_loss)
+        print(self.lambda_dist * dist_loss)
         print("\n")
 
         return (
@@ -119,8 +135,5 @@ class YoloLoss(nn.Module):
                 + self.lambda_obj * object_loss
                 + self.lambda_noobj * no_object_loss
                 + self.lambda_class * class_loss
+                + self.lambda_dist * dist_loss
         )
-
-
-
-
