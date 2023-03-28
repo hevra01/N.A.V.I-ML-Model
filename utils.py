@@ -10,6 +10,11 @@ from collections import Counter
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+# iou_width_height assumes that the boxes are represented as (width, height) pairs,
+# while intersection_over_union assumes that the boxes are represented as (x1, y1, x2, y2)
+# or (center_x, center_y, width, height).
+# In general, intersection_over_union is more flexible and can handle boxes in various formats,
+# while iou_width_height is simpler and more efficient when dealing with boxes represented in (width, height) format.
 
 def iou_width_height(boxes1, boxes2):
     """
