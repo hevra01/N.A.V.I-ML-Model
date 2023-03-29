@@ -1,6 +1,6 @@
 import torch
 from cost import YoloLoss
-from cost import intersection_over_union
+from utils import intersection_over_union
 
 img_size = 256 # this value has randomly been assigned
 num_classes = 7 # num of classes in kitti dataset
