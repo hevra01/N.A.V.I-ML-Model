@@ -17,7 +17,6 @@ class YoloLoss(nn.Module):
         self.lambda_obj = 1
         self.lambda_box = 10
         self.lambda_dist = 10  # for the distance prediction
-        # change: define a loss for distance as well.
 
     def forward(self, predictions, target, anchors):
         # Check where obj and noobj (we ignore if target == -1)
