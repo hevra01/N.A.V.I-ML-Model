@@ -118,7 +118,7 @@ def main():
 
         # evaluating the model's performance on the test dataset at regular intervals (every 3 epochs) during training.
         if epoch > 0 and epoch % 3 == 0:
-            check_class_accuracy(model, test_loader, threshold=config.CONF_THRESHOLD)
+            check_class_accuracy(model, test_loader, threshold=config.CONF_THRESHOLD, dist_threshold=config.CONF_DIST_THRESHOLD)
             pred_boxes, true_boxes = get_evaluation_bboxes(
                 test_loader,
                 model,
