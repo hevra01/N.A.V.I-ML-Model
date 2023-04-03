@@ -386,17 +386,36 @@ def check_class_accuracy(model, loader, threshold):
     # can save memory and computation time. Also, ensures that the model parameters are not updated during the testing
     # stage.
     model.eval()
+    # These variables will be updated during the evaluation loop, and will be used to calculate the accuracy of the
+    # model's predictions on the test dataset.
+    # total number of class predictions made by the model,
+    # total number of class predictions made by the model that were correct
     tot_class_preds, correct_class = 0, 0
+    # total number of "no object" predictions made by the model,
+    # total number of "no object" predictions made by the model that were correct
     tot_noobj, correct_noobj = 0, 0
+    # total number of "object" predictions made by the mode,
+    # total number of "object" predictions made by the model that were correct
     tot_obj, correct_obj = 0, 0
 
+    # The enumerate function is used to loop through each batch of data in the loader, which should be test loader,
+    # where each batch contains a tuple of input data x and corresponding target labels y.
+    # The variable idx is just the batch index.
     for idx, (x, y) in enumerate(tqdm(loader)):
         x = x.to(config.DEVICE)
+        # prevent any gradients from being computed
         with torch.no_grad():
             out = model(x)
 
         for i in range(3):
             y[i] = y[i].to(config.DEVICE)
+            # Here, y[i][..., 0] represents the first channel of the ground truth tensor y for the i-th scale of the
+            # YOLO architecture, which corresponds to the objectness score IoU_{obj}. In YOLO, each grid cell is
+            # responsible for detecting only one object, so the objectness score is a binary indicator that is 1 when
+            # the grid cell contains an object and 0 otherwise. So, obj = y[i][..., 0] == 1 will create a boolean mask
+            # where True corresponds to the indices in y[i][..., 0] that have a value of 1 (i.e., a detected object).
+            # obj is a boolean tensor which has a value of True at the index where an object is present in the anchor
+            # box and False otherwise.
             obj = y[i][..., 0] == 1 # in paper this is Iobj_i
             noobj = y[i][..., 0] == 0  # in paper this is Iobj_i
 
