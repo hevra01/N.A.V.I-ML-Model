@@ -442,9 +442,18 @@ def check_class_accuracy(model, loader, threshold, dist_threshold):
             correct_noobj += torch.sum(obj_preds[noobj] == y[i][..., 0][noobj])
             tot_noobj += torch.sum(noobj)
 
+            correct_dist += torch.sum(
+                # computes the absolute difference between the predicted and true distances for each bounding box where
+                # an object is present in the ground truth. 0th index is objectness, 1st to 4th is bounding box info,
+                # 5th is dist.
+                torch.abs(out[i][..., 5][obj] - y[i][..., 5][obj]) <= dist_threshold
+            )
+            tot_dist += torch.sum(obj)
+
     print(f"Class accuracy is: {(correct_class/(tot_class_preds+1e-16))*100:2f}%")
     print(f"No obj accuracy is: {(correct_noobj/(tot_noobj+1e-16))*100:2f}%")
     print(f"Obj accuracy is: {(correct_obj/(tot_obj+1e-16))*100:2f}%")
+    print(f"Distance accuracy is: {(correct_dist / (tot_dist + 1e-16)) * 100:2f}%")
     # Set the model back to training mode
     model.train()
 
