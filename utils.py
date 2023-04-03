@@ -426,6 +426,7 @@ def get_mean_std(loader):
     return mean, std
 
 
+# takes the current state of the model and the optimizer, and saves them in a checkpoint file.
 def save_checkpoint(model, optimizer, filename="my_checkpoint.pth.tar"):
     print("=> Saving checkpoint")
     checkpoint = {

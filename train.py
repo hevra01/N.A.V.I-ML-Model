@@ -68,3 +68,70 @@ def train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors):
         mean_loss = sum(losses) / len(losses)
         # sets the progress bar's display to show the current mean loss value
         loop.set_postfix(loss=mean_loss)
+
+def main():
+
+    # defining the necessary components for training a YOLOv3
+    # creating an instance of the model class
+    model = YOLOv3(num_classes=config.NUM_CLASSES).to(config.DEVICE)
+    # creating an instance of the Adam optimizer
+    optimizer = optim.Adam(
+        model.parameters(), lr=config.LEARNING_RATE, weight_decay=config.WEIGHT_DECAY
+    )
+    # creating an instance of the loss/cost class
+    loss_fn = YoloLoss()
+    scaler = torch.cuda.amp.GradScaler()
+
+    # using a custom get_loaders function to create data loaders for the training,
+    # testing, and evaluation datasets. The data is loaded from CSV files which
+    # contain the file paths and annotations for each image. These data loaders are
+    # used later in the training loop.
+    train_loader, test_loader, train_eval_loader = get_loaders(
+        train_csv_path=config.DATASET + "/train.csv", test_csv_path=config.DATASET + "/test.csv"
+    )
+
+    # load a previously saved model checkpoint from the specified file config.CHECKPOINT_FILE,
+    # and restore the state of the model and optimizer objects so that training can continue
+    # from the previously saved point.
+    if config.LOAD_MODEL:
+        load_checkpoint(
+            config.CHECKPOINT_FILE, model, optimizer, config.LEARNING_RATE
+        )
+
+    # The resulting scaled_anchors tensor will have the same shape as the config.ANCHORS tensor
+    # but with the anchor boxes scaled according to the config.S parameter.
+    scaled_anchors = (
+        torch.tensor(config.ANCHORS)
+        * torch.tensor(config.S).unsqueeze(1).unsqueeze(1).repeat(1, 3, 2)
+    ).to(config.DEVICE)
+
+    for epoch in range(config.NUM_EPOCHS):
+        train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors)
+
+        # if config.SAVE_MODEL:
+        #    save_checkpoint(model, optimizer, filename=f"checkpoint.pth.tar")
+
+        # print(f"Currently epoch {epoch}")
+        # print("On Train Eval loader:")
+        # print("On Train loader:")
+        # check_class_accuracy(model, train_loader, threshold=config.CONF_THRESHOLD)
+
+        # evaluating the model's performance on the test dataset at regular intervals (every 3 epochs) during training.
+        if epoch > 0 and epoch % 3 == 0:
+            check_class_accuracy(model, test_loader, threshold=config.CONF_THRESHOLD)
+            pred_boxes, true_boxes = get_evaluation_bboxes(
+                test_loader,
+                model,
+                iou_threshold=config.NMS_IOU_THRESH,
+                anchors=config.ANCHORS,
+                threshold=config.CONF_THRESHOLD,
+            )
+            mapval = mean_average_precision(
+                pred_boxes,
+                true_boxes,
+                iou_threshold=config.MAP_IOU_THRESH,
+                box_format="midpoint",
+                num_classes=config.NUM_CLASSES,
+            )
+            print(f"MAP: {mapval.item()}")
+            model.train()
