@@ -168,7 +168,8 @@ class YOLOv3(nn.Module):
                 route_connections.append(x)
 
             elif isinstance(layer, nn.Upsample):
-                # When we encounter an upsamling layer we will concatenate the output with the last route previously found
+                # When we encounter an upsamling layer we will concatenate
+                # the output with the last route previously found
                 x = torch.cat([x, route_connections[-1]], dim=1)
                 route_connections.pop()
 
