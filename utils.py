@@ -378,7 +378,7 @@ def cells_to_bboxes(predictions, anchors, S, is_preds=True):
     converted_bboxes = torch.cat((best_class, scores, x, y, w_h), dim=-1).reshape(BATCH_SIZE, num_anchors * S * S, 6)
     return converted_bboxes.tolist()
 
-def check_class_accuracy(model, loader, threshold):
+def check_class_accuracy(model, loader, threshold, dist_threshold):
     # nn.Module has the train() and eval() methods built-in, which are used to switch the model to train or eval mode.
     # When the model is in training mode (i.e., after calling model.train()), it computes gradients and updates its
     # weights during the backward pass of the optimization algorithm. During evaluation
@@ -391,12 +391,18 @@ def check_class_accuracy(model, loader, threshold):
     # total number of class predictions made by the model,
     # total number of class predictions made by the model that were correct
     tot_class_preds, correct_class = 0, 0
+
     # total number of "no object" predictions made by the model,
     # total number of "no object" predictions made by the model that were correct
     tot_noobj, correct_noobj = 0, 0
+
     # total number of "object" predictions made by the mode,
     # total number of "object" predictions made by the model that were correct
     tot_obj, correct_obj = 0, 0
+
+    # total number of distance predictions made by the model,
+    # total number of distance predictions made by the model that were correct
+    tot_dist, correct_dist = 0, 0
 
     # The enumerate function is used to loop through each batch of data in the loader, which should be test loader,
     # where each batch contains a tuple of input data x and corresponding target labels y.
@@ -419,11 +425,17 @@ def check_class_accuracy(model, loader, threshold):
             obj = y[i][..., 0] == 1 # in paper this is Iobj_i
             noobj = y[i][..., 0] == 0  # in paper this is Iobj_i
 
+            # 0th index is objectness, 1st to 4th is bounding box info, 5th is dist.
+            # after 5th, we have the class predictions. Calculates the sum of all True values in the resulting tensor.
             correct_class += torch.sum(
-                torch.argmax(out[i][..., 5:][obj], dim=-1) == y[i][..., 5][obj]
+                # finds the class prediction with the highest confidence score for each bounding box where an object is
+                # present in the ground truth. Here, [..., 6:] means to take all dimensions after the sixth one.
+                torch.argmax(out[i][..., 6:][obj], dim=-1) == y[i][..., 6][obj]
             )
             tot_class_preds += torch.sum(obj)
 
+            # oth index is the objectness. If the predicted objectness score is greater than the threshold,
+            # obj_preds will be True at those indices, indicating that an object is detected at those locations.
             obj_preds = torch.sigmoid(out[i][..., 0]) > threshold
             correct_obj += torch.sum(obj_preds[obj] == y[i][..., 0][obj])
             tot_obj += torch.sum(obj)

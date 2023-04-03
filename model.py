@@ -59,7 +59,6 @@ config = [
 # with stability and speed of training.
 # relu is rectified linear unit activation function.
 # nn.module is the base class for all NN.
-
 class CNNBlock(nn.Module):
     def __init__(self, in_channels, out_channels, bn_act=True, **kwargs):
         super(CNNBlock, self).__init__()
