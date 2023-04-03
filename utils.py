@@ -379,6 +379,12 @@ def cells_to_bboxes(predictions, anchors, S, is_preds=True):
     return converted_bboxes.tolist()
 
 def check_class_accuracy(model, loader, threshold):
+    # nn.Module has the train() and eval() methods built-in, which are used to switch the model to train or eval mode.
+    # When the model is in training mode (i.e., after calling model.train()), it computes gradients and updates its
+    # weights during the backward pass of the optimization algorithm. During evaluation
+    # (i.e., after calling model.eval()), the model only performs forward passes and does not compute gradients, which
+    # can save memory and computation time. Also, ensures that the model parameters are not updated during the testing
+    # stage.
     model.eval()
     tot_class_preds, correct_class = 0, 0
     tot_noobj, correct_noobj = 0, 0
@@ -408,6 +414,7 @@ def check_class_accuracy(model, loader, threshold):
     print(f"Class accuracy is: {(correct_class/(tot_class_preds+1e-16))*100:2f}%")
     print(f"No obj accuracy is: {(correct_noobj/(tot_noobj+1e-16))*100:2f}%")
     print(f"Obj accuracy is: {(correct_obj/(tot_obj+1e-16))*100:2f}%")
+    # Set the model back to training mode
     model.train()
 
 
@@ -436,6 +443,7 @@ def save_checkpoint(model, optimizer, filename="my_checkpoint.pth.tar"):
     torch.save(checkpoint, filename)
 
 
+# loads the saved checkpoint file and updates the model and optimizer with the saved states.
 def load_checkpoint(checkpoint_file, model, optimizer, lr):
     print("=> Loading checkpoint")
     checkpoint = torch.load(checkpoint_file, map_location=config.DEVICE)
@@ -448,6 +456,7 @@ def load_checkpoint(checkpoint_file, model, optimizer, lr):
         param_group["lr"] = lr
 
 
+# create PyTorch data loaders for training, testing, and evaluation
 def get_loaders(train_csv_path, test_csv_path):
     from dataset import YOLODataset
 
@@ -468,6 +477,8 @@ def get_loaders(train_csv_path, test_csv_path):
         label_dir=config.LABEL_DIR,
         anchors=config.ANCHORS,
     )
+
+    # DataLoader objects are used to iterate over the data during training and testing.
     train_loader = DataLoader(
         dataset=train_dataset,
         batch_size=config.BATCH_SIZE,
@@ -504,6 +515,7 @@ def get_loaders(train_csv_path, test_csv_path):
 
     return train_loader, test_loader, train_eval_loader
 
+
 def plot_couple_examples(model, loader, thresh, iou_thresh, anchors):
     model.eval()
     x, y = next(iter(loader))
@@ -529,7 +541,13 @@ def plot_couple_examples(model, loader, thresh, iou_thresh, anchors):
         plot_image(x[i].permute(1,2,0).detach().cpu(), nms_boxes)
 
 
-
+# sets the random seed for various libraries in order to ensure that the random
+# processes in the code are deterministic and reproducible.
+# Deterministic means that if we run the same code multiple times with the same
+# input and the same initial state (e.g., random number generator seeds), we should
+# get the same output every time. This is especially important in research, where we
+# want to compare different models or algorithms and ensure that the differences we
+# observe are not due to random variations in the data or the code.
 def seed_everything(seed=42):
     os.environ['PYTHONHASHSEED'] = str(seed)
     random.seed(seed)
