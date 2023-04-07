@@ -135,3 +135,5 @@ def main():
             )
             print(f"MAP: {mapval.item()}")
             model.train()
+
+main()
