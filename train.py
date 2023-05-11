@@ -18,8 +18,8 @@ from cost import YoloLoss
 
 torch.backends.cudnn.benchmark = True
 
-def train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors):
 
+def train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors):
     # creates a progress bar for the train_loader iterable object,
     # which is typically a DataLoader object used in PyTorch for loading training data in batches.
     loop = tqdm(train_loader, leave=True)
@@ -44,9 +44,9 @@ def train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors):
             # change: this is kinda weird because in the dataset I don't think there are moer than one label per image
             # not for multiple scales I mean, maybe we are creating them in the dataloader. check this please
             loss = (
-                loss_fn(out[0], y0, scaled_anchors[0])
-                + loss_fn(out[1], y1, scaled_anchors[1])
-                + loss_fn(out[2], y2, scaled_anchors[2])
+                    loss_fn(out[0], y0, scaled_anchors[0])
+                    + loss_fn(out[1], y1, scaled_anchors[1])
+                    + loss_fn(out[2], y2, scaled_anchors[2])
             )
 
         # adds the current batch loss to a losses list
@@ -69,8 +69,9 @@ def train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors):
         # sets the progress bar's display to show the current mean loss value
         loop.set_postfix(loss=mean_loss)
 
-def main():
 
+def main():
+    torch.cuda.empty_cache()
     # defining the necessary components for training a YOLOv3
     # creating an instance of the model class
     model = YOLOv3(num_classes=config.NUM_CLASSES).to(config.DEVICE)
@@ -101,8 +102,8 @@ def main():
     # The resulting scaled_anchors tensor will have the same shape as the config.ANCHORS tensor
     # but with the anchor boxes scaled according to the config.S parameter.
     scaled_anchors = (
-        torch.tensor(config.ANCHORS)
-        * torch.tensor(config.S).unsqueeze(1).unsqueeze(1).repeat(1, 3, 2)
+            torch.tensor(config.ANCHORS)
+            * torch.tensor(config.S).unsqueeze(1).unsqueeze(1).repeat(1, 3, 2)
     ).to(config.DEVICE)
 
     for epoch in range(config.NUM_EPOCHS):
@@ -118,7 +119,8 @@ def main():
 
         # evaluating the model's performance on the test dataset at regular intervals (every 3 epochs) during training.
         if epoch > 0 and epoch % 3 == 0:
-            check_class_accuracy(model, test_loader, threshold=config.CONF_THRESHOLD, dist_threshold=config.CONF_DIST_THRESHOLD)
+            check_class_accuracy(model, test_loader, threshold=config.CONF_THRESHOLD,
+                                 dist_threshold=config.CONF_DIST_THRESHOLD)
             pred_boxes, true_boxes = get_evaluation_bboxes(
                 test_loader,
                 model,
@@ -136,4 +138,6 @@ def main():
             print(f"MAP: {mapval.item()}")
             model.train()
 
-main()
+
+if __name__ == '__main__':
+    main()
