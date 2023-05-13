@@ -11,9 +11,6 @@ ANCHORS = [
 ]
 
 
-
-
-
 def bbox_iou(box1, box2):
     """
     Returns the IoU of two bounding boxes.
@@ -67,7 +64,8 @@ class YOLODataset(Dataset):
         # if self.transform:
         #     image = self.transform(image)
 
-        targets = torch.zeros((3, 13, 13, 7))  # 3 scales, 13x13 grid cells, 6 attributes
+        # 7 attributes: objectness, 4 bb (x, y, w, h), 1 class label, 1 distance
+        targets = torch.zeros((3, 13, 13, 7))  # 3 scales, 13x13 grid cells, 7 attributes
         for box in boxes:
             x, y, w, h, c, d = box
             box = [x / image.width, y / image.height, w / image.width, h / image.height, c, d]
@@ -97,7 +95,6 @@ class YOLODataset(Dataset):
                     targets[best_scale, i, j, 0] = -1
                 else:
                     pass
-
         return self.transform(image), targets
 
 

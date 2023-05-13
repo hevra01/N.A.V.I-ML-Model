@@ -21,15 +21,27 @@ class YoloLoss(nn.Module):
 
     def forward(self, predictions, target, anchors):
         # Check where obj and noobj (we ignore if target == -1)
-        obj = target[..., 0] == 1  # in paper this is Iobj_i
-        noobj = target[..., 0] == 0  # in paper this is Inoobj_i
+        print("predictions: ", predictions)
+
+        print("target: ", target)
+        print(predictions.shape)
+        print(target.shape)
+
+        # [..., 0] => gets the zeroth index of all the rows, which is about whether an object is present or not
+        # 1 means object is present, -1 means the object is not present, hence there is no need to
+        # punish the model for incorrect class or distance estimation since there is no object anyways
+        obj = target[..., 0] == 1
+        noobj = target[..., 0] == -1
+
+        print(obj)
+        print(noobj)
+        print(predictions[..., 0:1][noobj])
 
         # ======================= #
         #   FOR NO OBJECT LOSS
         #   This is to penalize anchors that didn't predict the existence of an object
         #   by only the objectness loss and not misclassification or bounding box loss
         # ======================= #
-
         no_object_loss = self.bce(
             (predictions[..., 0:1][noobj]), (target[..., 0:1][noobj]),
         )

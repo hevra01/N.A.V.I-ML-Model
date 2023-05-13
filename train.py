@@ -41,7 +41,7 @@ def train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors):
         # performing forward pass and loss computation in a mixed precision setting using PyTorch's AMP feature.
         with torch.cuda.amp.autocast():
             out = model(x)
-            # change: this is kinda weird because in the dataset I don't think there are moer than one label per image
+            # change: this is kinda weird because in the dataset I don't think there are more than one label per image
             # not for multiple scales I mean, maybe we are creating them in the dataloader. check this please
             loss = (
                     loss_fn(out[0], y0, scaled_anchors[0])
