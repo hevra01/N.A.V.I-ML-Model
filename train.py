@@ -30,17 +30,34 @@ def train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors):
     # while (x, y) contains the inputs x and labels y for the current batch.
     for batch_idx, (x, y) in enumerate(loop):
         # move the input data (x) and the targets (y) onto the GPU device
-        # specified in the configuration file (config.DEVICE).
+        # specified in the configuration file (config.DEVICE)
+        scale1 = []
+        scale2 = []
+        scale3 = []
+
+        # y is originally a list of images each with 3 scales. we need
+        # to convert it into a list of 3 scales that has images.
+        for img in y:
+            scale1.append(img[0])
+            scale2.append(img[1])
+            scale3.append(img[2])
+
+        scale1 = torch.stack(scale1)
+        scale2 = torch.stack(scale2)
+        scale3 = torch.stack(scale3)
+
         x = x.to(config.DEVICE)
         y0, y1, y2 = (
-            y[0].to(config.DEVICE),
-            y[1].to(config.DEVICE),
-            y[2].to(config.DEVICE),
+            scale1.to(config.DEVICE),
+            scale2.to(config.DEVICE),
+            scale3.to(config.DEVICE),
         )
 
         # performing forward pass and loss computation in a mixed precision setting using PyTorch's AMP feature.
         with torch.cuda.amp.autocast():
             out = model(x)
+            print(len(out))
+            print(out[0].shape)
             # change: this is kinda weird because in the dataset I don't think there are more than one label per image
             # not for multiple scales I mean, maybe we are creating them in the dataloader. check this please
             loss = (

@@ -21,11 +21,6 @@ class YoloLoss(nn.Module):
 
     def forward(self, predictions, target, anchors):
         # Check where obj and noobj (we ignore if target == -1)
-        print("predictions: ", predictions)
-
-        print("target: ", target)
-        print(predictions.shape)
-        print(target.shape)
 
         # [..., 0] => gets the zeroth index of all the rows, which is about whether an object is present or not
         # 1 means object is present, -1 means the object is not present, hence there is no need to
@@ -33,9 +28,8 @@ class YoloLoss(nn.Module):
         obj = target[..., 0] == 1
         noobj = target[..., 0] == -1
 
-        print(obj)
-        print(noobj)
-        print(predictions[..., 0:1][noobj])
+
+
 
         # ======================= #
         #   FOR NO OBJECT LOSS
