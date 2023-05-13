@@ -10,7 +10,6 @@ from collections import Counter
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from dataset import collate_fn
 
 
 # iou_width_height assumes that the boxes are represented as (width, height) pairs,
@@ -516,7 +515,7 @@ def get_loaders(train_csv_path, test_csv_path):
         pin_memory=config.PIN_MEMORY,
         shuffle=True,
         drop_last=False,
-        collate_fn=collate_fn
+
     )
     test_loader = DataLoader(
         dataset=test_dataset,
@@ -525,7 +524,7 @@ def get_loaders(train_csv_path, test_csv_path):
         pin_memory=config.PIN_MEMORY,
         shuffle=False,
         drop_last=False,
-        collate_fn=collate_fn
+
     )
 
     train_eval_dataset = YOLODataset("Dataset/mini labels.txt")
@@ -536,7 +535,7 @@ def get_loaders(train_csv_path, test_csv_path):
         pin_memory=config.PIN_MEMORY,
         shuffle=False,
         drop_last=False,
-        collate_fn=collate_fn
+
     )
 
     return train_loader, test_loader, train_eval_loader
