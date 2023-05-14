@@ -65,11 +65,12 @@ class YoloLoss(nn.Module):
         # ================== #
         #   FOR CLASS LOSS   #
         # ================== #
+        
         class_loss = self.entropy(
             # indexing all the values from the 6th channel to the end of the tensor.
             # because until the 6th channel it contains info about: 1 for objectness,
             # bounding box (4 values), and 1 for distance. indexing starts from 0.
-            (predictions[..., 6:][obj]), (target[..., 6][obj].long()),
+            (predictions[..., :7][obj]), (target[..., 5][obj].long()),
         )
 
         # ==================== #
