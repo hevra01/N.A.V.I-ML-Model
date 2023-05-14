@@ -28,9 +28,6 @@ class YoloLoss(nn.Module):
         obj = target[..., 0] == 1
         noobj = target[..., 0] == -1
 
-
-
-
         # ======================= #
         #   FOR NO OBJECT LOSS
         #   This is to penalize anchors that didn't predict the existence of an object
@@ -65,7 +62,7 @@ class YoloLoss(nn.Module):
         # ================== #
         #   FOR CLASS LOSS   #
         # ================== #
-        
+
         class_loss = self.entropy(
             # indexing all the values from the 6th channel to the end of the tensor.
             # because until the 6th channel it contains info about: 1 for objectness,
@@ -77,8 +74,14 @@ class YoloLoss(nn.Module):
         #   FOR DISTANCE LOSS   #
         # ==================== #
 
-        dist_targets = target[..., 5][obj]
-        dist_predictions = predictions[..., 5][obj]
+        print(target[..., 6][obj])
+        print(predictions[..., -1][obj])
+        # Make sure both tensors have the same shape
+        assert target[..., 6][obj].shape == predictions[..., -1][obj].shape
+        dist_targets = target[..., 6][obj]
+        # the model's last prediction is distance hence -1 to get the last element
+        dist_predictions = predictions[..., -1][obj]
+        print(dist_predictions)
 
         dist_loss = self.mse(
             dist_predictions, dist_targets,
