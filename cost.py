@@ -35,6 +35,10 @@ class YoloLoss(nn.Module):
         #   This is to penalize anchors that didn't predict the existence of an object
         #   by only the objectness loss and not misclassification or bounding box loss
         # ======================= #
+
+        # find entropy of the class predictions returned by the class.
+        # if the entropy is high, the noobj lose needs to be close to zero.
+        # if the entropy is low, the noonj lose needs to be high.
         no_object_loss = self.bce(
             (predictions[..., 0][noobj]), (target[..., 0][noobj]),
         )
@@ -81,11 +85,13 @@ class YoloLoss(nn.Module):
 
         # Make sure both tensors have the same shape
         assert target[..., 6][obj].shape == predictions[..., -1][obj].shape
+        # target[..., 6] = [3, 5, 2, 8, 6, 7] (assume we have 6 bb in an image)
+
         dist_targets = target[..., 6][obj]
         # the model's last prediction is distance hence -1 to get the last element
         dist_predictions = predictions[..., -1][obj]
         dist_loss = self.mse(
-            dist_predictions, dist_targets,
+            dist_predictions, dist_targets
         )
 
 

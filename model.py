@@ -128,7 +128,7 @@ class ScalePrediction(nn.Module):
             self.pred(x)
              # 3 represents anchors_per_scale
             .reshape(x.shape[0], 3, self.num_classes + 6, x.shape[2], x.shape[3])
-            .permute(0, 1, 3, 4, 2)
+            .permute(0, 1, 3, 4, 2)   #[[0.3, 0.5, 0.4, 0.2, 0.7, 0.8, 0.9], bb, c, d]
         )
 
 

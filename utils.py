@@ -450,7 +450,7 @@ def check_class_accuracy(model, loader, threshold, dist_threshold):
                 # computes the absolute difference between the predicted and true distances for each bounding box where
                 # an object is present in the ground truth. 0th index is objectness, 1st to 4th is bounding box info,
                 # 5th is dist.
-                torch.abs(out[i][..., 5][obj] - y[i][..., 5][obj]) <= dist_threshold
+                torch.abs(out[i][..., -1][obj] - y[i][..., -1][obj]) <= dist_threshold
             )
             tot_dist += torch.sum(obj)
     print("correct distance: ",correct_dist,"\ntotal_pred: ",tot_dist)
