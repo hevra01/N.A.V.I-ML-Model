@@ -7,7 +7,7 @@ from utils import intersection_over_union
 class YoloLoss(nn.Module):
     def __init__(self):
         super().__init__()
-        self.mse = nn.MSELoss # for the bounding box predictions, and distance estimation
+        self.mse = nn.MSELoss() # for the bounding box predictions, and distance estimation
         self.bce = nn.BCEWithLogitsLoss() # for objectness prediction
         self.entropy = nn.CrossEntropyLoss() # for class prediction
         self.sigmoid = nn.Sigmoid() # activation function
@@ -23,10 +23,12 @@ class YoloLoss(nn.Module):
         # Check where obj and noobj (we ignore if target == -1)
 
         # [..., 0] => gets the zeroth index of all the rows, which is about whether an object is present or not
-        # 1 means object is present, -1 means the object is not present, hence there is no need to
+        # 1 means object is present, 0 means the object is not present, hence there is no need to
         # punish the model for incorrect class or distance estimation since there is no object anyways
         obj = target[..., 0] == 1
-        noobj = target[..., 0] == -1
+        noobj = target[..., 0] == 0
+
+
 
         # ======================= #
         #   FOR NO OBJECT LOSS
@@ -34,8 +36,10 @@ class YoloLoss(nn.Module):
         #   by only the objectness loss and not misclassification or bounding box loss
         # ======================= #
         no_object_loss = self.bce(
-            (predictions[..., 0:1][noobj]), (target[..., 0:1][noobj]),
+            (predictions[..., 0][noobj]), (target[..., 0][noobj]),
         )
+
+
 
         # ==================== #
         #   FOR OBJECT LOSS
@@ -74,26 +78,17 @@ class YoloLoss(nn.Module):
         #   FOR DISTANCE LOSS   #
         # ==================== #
 
-        print(target[..., 6][obj])
-        print(predictions[..., -1][obj])
+
         # Make sure both tensors have the same shape
         assert target[..., 6][obj].shape == predictions[..., -1][obj].shape
         dist_targets = target[..., 6][obj]
         # the model's last prediction is distance hence -1 to get the last element
         dist_predictions = predictions[..., -1][obj]
-        print(dist_predictions)
-
         dist_loss = self.mse(
             dist_predictions, dist_targets,
         )
 
-        print("__________________________________")
-        print(self.lambda_box * box_loss)
-        print(self.lambda_obj * object_loss)
-        print(self.lambda_noobj * no_object_loss)
-        print(self.lambda_class * class_loss)
-        print(self.lambda_dist * dist_loss)
-        print("\n")
+
 
         return (
                 self.lambda_box * box_loss

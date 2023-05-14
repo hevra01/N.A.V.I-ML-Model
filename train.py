@@ -134,24 +134,25 @@ def main():
 
         # evaluating the model's performance on the test dataset at regular intervals (every 3 epochs) during training.
         if epoch > 0 and epoch % 3 == 0:
-            check_class_accuracy(model, test_loader, threshold=config.CONF_THRESHOLD,
+            check_class_accuracy(model, test_loader, threshold=config.OBJ_PRESENCE_CONFIDENCE_THRESHOLD,
                                  dist_threshold=config.CONF_DIST_THRESHOLD)
-            pred_boxes, true_boxes = get_evaluation_bboxes(
-                test_loader,
-                model,
-                iou_threshold=config.NMS_IOU_THRESH,
-                anchors=config.ANCHORS,
-                threshold=config.CONF_THRESHOLD,
-            )
-            mapval = mean_average_precision(
-                pred_boxes,
-                true_boxes,
-                iou_threshold=config.MAP_IOU_THRESH,
-                box_format="midpoint",
-                num_classes=config.NUM_CLASSES,
-            )
-            print(f"MAP: {mapval.item()}")
-            model.train()
+
+            # this is another performance metric. it measures how accurate the alignment of bb's are.
+            # pred_boxes, true_boxes = get_evaluation_bboxes(
+            #     test_loader,
+            #     model,
+            #     iou_threshold=config.NMS_IOU_THRESH,
+            #     anchors=config.ANCHORS,
+            #     threshold=config.CLASS_CONF_THRESHOLD,
+            # )
+            # mapval = mean_average_precision(
+            #     pred_boxes,
+            #     true_boxes,
+            #     iou_threshold=config.MAP_IOU_THRESH,
+            #     box_format="midpoint",
+            #     num_classes=config.NUM_CLASSES,
+            # )
+            # print(f"MAP: {mapval.item()}")
 
 
 if __name__ == '__main__':

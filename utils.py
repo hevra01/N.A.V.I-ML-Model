@@ -109,6 +109,7 @@ def non_max_suppression(bboxes, iou_threshold, threshold, box_format="corners"):
 
     while bboxes:
         chosen_box = bboxes.pop(0)
+        print(bboxes)
 
         bboxes = [
             box
@@ -415,6 +416,7 @@ def check_class_accuracy(model, loader, threshold, dist_threshold):
         with torch.no_grad():
             out = model(x)
 
+        # 3 iterations, 1 for each scale
         for i in range(3):
             y[i] = y[i].to(config.DEVICE)
             # Here, y[i][..., 0] represents the first channel of the ground truth tensor y for the i-th scale of the
@@ -431,8 +433,8 @@ def check_class_accuracy(model, loader, threshold, dist_threshold):
             # after 5th, we have the class predictions. Calculates the sum of all True values in the resulting tensor.
             correct_class += torch.sum(
                 # finds the class prediction with the highest confidence score for each bounding box where an object is
-                # present in the ground truth. Here, [..., 6:] means to take all dimensions after the sixth one.
-                torch.argmax(out[i][..., 6:][obj], dim=-1) == y[i][..., 6][obj]
+                # present in the ground truth. Here, [..., :7] means to take all dimensions until the seventh one.
+                torch.argmax(out[i][..., :7][obj], dim=-1) == y[i][..., 6][obj]
             )
             tot_class_preds += torch.sum(obj)
 
@@ -451,7 +453,9 @@ def check_class_accuracy(model, loader, threshold, dist_threshold):
                 torch.abs(out[i][..., 5][obj] - y[i][..., 5][obj]) <= dist_threshold
             )
             tot_dist += torch.sum(obj)
-
+    print("correct distance: ",correct_dist,"\ntotal_pred: ",tot_dist)
+    print("correct noobj: ",correct_noobj,"\ntotal_noobj: ",tot_noobj)
+    print("correct class: ",correct_class,"\ntotal_pred: ",tot_class_preds)
     print(f"Class accuracy is: {(correct_class / (tot_class_preds + 1e-16)) * 100:2f}%")
     print(f"No obj accuracy is: {(correct_noobj / (tot_noobj + 1e-16)) * 100:2f}%")
     print(f"Obj accuracy is: {(correct_obj / (tot_obj + 1e-16)) * 100:2f}%")
