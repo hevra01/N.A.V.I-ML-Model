@@ -1,7 +1,11 @@
+from torch.utils.data import DataLoader
+from torch.utils.data import Subset
+from dataset import YOLODataset
 import config
 import torch
 import torch.optim as optim
 from sklearn.model_selection import KFold
+import numpy as np
 
 from dataset import YOLODataset
 from model import YOLOv3
@@ -20,35 +24,73 @@ from cost import YoloLoss
 
 torch.backends.cudnn.benchmark = True
 
-def cross_validation(model, dataset):
-    train_dataset = YOLODataset("Dataset/labels.txt")
 
+# this function will help us find the average performance of our model using cross-validation
+def cross_validation(model,optimizer, loss_fn, scaler, whole_dataset, scaled_anchors):
     # Define the number of folds for cross-validation
-    k_folds = 5
+    k_folds = KFold(n_splits=10, shuffle=True, random_state=42)
 
-    # Split your dataset into K folds
-    kfold = KFold(n_splits=k_folds, shuffle=True)
+    # initialize to zero.
+    avg_class_accuracy = 0
+    avg_obj_accuracy = 0
+    avg_no_obj_accuracy = 0
+    avg_distance_accuracy = 0
+    print("before for loop")
+    # iterate over k-folds.
+    # enumerate(k_folds.split()) returns the fold index (fold) and
+    # a tuple ((train_indices, val_indices)) containing the indices of the training and
+    # validation sets for the current fold.
+    for fold, (train_indices, val_indices) in enumerate(k_folds.split(range(whole_dataset.__len__()))):
+        # Create the train and validation subsets using Subset
+        train_subset = Subset(whole_dataset, train_indices)
+        val_subset = Subset(whole_dataset, val_indices)
 
-    # Loop over the K folds
-    for train_index, val_index in kfold.split(train_dataset):
-        # Get the training and validation sets for the current fold
-        train_set = dataset[train_index]
-        val_set = dataset[val_index]
+        # for debugging purposes. yes, nice! 90% goes for training, 10% goes for testing
+        t_percent = len(train_subset)/whole_dataset.__len__()
+        v_percent = len(val_subset)/whole_dataset.__len__()
+        print("train_subset percentage: ", t_percent, "val_subset percentage: ", v_percent)
+        # Create the train and validation loaders using DataLoader
+        train_loader = DataLoader(
+            dataset=train_subset,
+            batch_size=config.BATCH_SIZE,
+            num_workers=config.NUM_WORKERS,
+            pin_memory=config.PIN_MEMORY,
+            shuffle=True,
+            drop_last=False,
+        )
 
-        # Train your YOLOv3 model on the training set
-        model.train(train_set)
+        val_loader = DataLoader(
+            dataset=val_subset,
+            batch_size=config.BATCH_SIZE,
+            num_workers=config.NUM_WORKERS,
+            pin_memory=config.PIN_MEMORY,
+            shuffle=False,
+            drop_last=False,
+        )
+        print("after creating train and eval loaders!")
+        # perform training on k-1 folds
+        train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors)
+        print("after train")
 
-        # Evaluate the model on the validation set
-        metrics = check_class_accuracy(model, loader, threshold, dist_threshold)
+        # perform testing on the kth fold
+        class_accuracy, obj_accuracy, no_obj_accuracy, distance_accuracy = check_class_accuracy(model, val_loader,
+                                                                                                threshold=config.OBJ_PRESENCE_CONFIDENCE_THRESHOLD,
+                                                                                                dist_threshold=config.CONF_DIST_THRESHOLD)
 
-        # Print the evaluation metrics for the current fold
-        print("Fold metrics:", metrics)
+        print("after check_accuracy")
+        # here, we are accumulating the accuracy, then we will divide by the number of folds
+        avg_class_accuracy += class_accuracy
+        avg_obj_accuracy += obj_accuracy
+        avg_no_obj_accuracy += no_obj_accuracy
+        avg_distance_accuracy += distance_accuracy
 
-    # Calculate the average metrics across all folds
-    avg_metrics = calculate_average_metrics()
+    # in order to get the average, we need to divide by the number of folds
+    avg_class_accuracy /= k_folds
+    avg_obj_accuracy /= k_folds
+    avg_no_obj_accuracy /= k_folds
+    avg_distance_accuracy /= k_folds
 
-    # Print the average metrics
-    print("Average metrics:", avg_metrics)
+    return avg_class_accuracy, avg_obj_accuracy, avg_no_obj_accuracy, avg_distance_accuracy
 
 
 def calculate_average_metrics(metrics_list):
@@ -59,7 +101,6 @@ def calculate_average_metrics(metrics_list):
     avg_metrics = np.mean(metrics_array, axis=0)
 
     return avg_metrics
-
 
 
 def train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors):
@@ -141,11 +182,26 @@ def main():
     loss_fn = YoloLoss()
     scaler = torch.cuda.amp.GradScaler()
 
+    # The resulting scaled_anchors tensor will have the same shape as the config.ANCHORS tensor
+    # but with the anchor boxes scaled according to the config.S parameter.
+    scaled_anchors = (
+            torch.tensor(config.ANCHORS)
+            * torch.tensor(config.S).unsqueeze(1).unsqueeze(1).repeat(1, 3, 2)
+    ).to(config.DEVICE)
+
+    # perform cross validation
+    whole_dataset = YOLODataset("Dataset/mini labels.txt")
+    avg_class_accuracy, avg_obj_accuracy, avg_no_obj_accuracy, avg_distance_accuracy = cross_validation(model,
+                                                                                                        optimizer,
+                                                                                                        loss_fn, scaler,
+                                                                                                        whole_dataset,
+                                                                                                        scaled_anchors)
+
     # using a custom get_loaders function to create data loaders for the training,
     # testing, and evaluation datasets. The data is loaded from CSV files which
     # contain the file paths and annotations for each image. These data loaders are
     # used later in the training loop.
-    train_loader= get_loaders()
+    train_loader = get_loaders()
 
     # load a previously saved model checkpoint from the specified file config.CHECKPOINT_FILE,
     # and restore the state of the model and optimizer objects so that training can continue
@@ -155,12 +211,6 @@ def main():
             config.CHECKPOINT_FILE, model, optimizer, config.LEARNING_RATE
         )
 
-    # The resulting scaled_anchors tensor will have the same shape as the config.ANCHORS tensor
-    # but with the anchor boxes scaled according to the config.S parameter.
-    scaled_anchors = (
-            torch.tensor(config.ANCHORS)
-            * torch.tensor(config.S).unsqueeze(1).unsqueeze(1).repeat(1, 3, 2)
-    ).to(config.DEVICE)
 
     for epoch in range(config.NUM_EPOCHS):
         train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors)
@@ -178,22 +228,22 @@ def main():
         #     check_class_accuracy(model, test_loader, threshold=config.OBJ_PRESENCE_CONFIDENCE_THRESHOLD,
         #                          dist_threshold=config.CONF_DIST_THRESHOLD)
 
-            # this is another performance metric. it measures how accurate the alignment of bb's are.
-            # pred_boxes, true_boxes = get_evaluation_bboxes(
-            #     test_loader,
-            #     model,
-            #     iou_threshold=config.NMS_IOU_THRESH,
-            #     anchors=config.ANCHORS,
-            #     threshold=config.CLASS_CONF_THRESHOLD,
-            # )
-            # mapval = mean_average_precision(
-            #     pred_boxes,
-            #     true_boxes,
-            #     iou_threshold=config.MAP_IOU_THRESH,
-            #     box_format="midpoint",
-            #     num_classes=config.NUM_CLASSES,
-            # )
-            # print(f"MAP: {mapval.item()}")
+        # this is another performance metric. it measures how accurate the alignment of bb's are.
+        # pred_boxes, true_boxes = get_evaluation_bboxes(
+        #     test_loader,
+        #     model,
+        #     iou_threshold=config.NMS_IOU_THRESH,
+        #     anchors=config.ANCHORS,
+        #     threshold=config.CLASS_CONF_THRESHOLD,
+        # )
+        # mapval = mean_average_precision(
+        #     pred_boxes,
+        #     true_boxes,
+        #     iou_threshold=config.MAP_IOU_THRESH,
+        #     box_format="midpoint",
+        #     num_classes=config.NUM_CLASSES,
+        # )
+        # print(f"MAP: {mapval.item()}")
 
 
 if __name__ == '__main__':

@@ -126,8 +126,6 @@ class YOLODataset(Dataset):
         return img, tuple(targets_out)
 
 
-
-
 def box_iou(box1, box2):
     b1_x1, b1_y1, b1_w, b1_h = box1
     b2_x1, b2_y1, b2_w, b2_h = box2

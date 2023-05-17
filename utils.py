@@ -453,15 +453,25 @@ def check_class_accuracy(model, loader, threshold, dist_threshold):
                 torch.abs(out[i][..., -1][obj] - y[i][..., -1][obj]) <= dist_threshold
             )
             tot_dist += torch.sum(obj)
-    print("correct distance: ",correct_dist,"\ntotal_pred: ",tot_dist)
-    print("correct noobj: ",correct_noobj,"\ntotal_noobj: ",tot_noobj)
-    print("correct class: ",correct_class,"\ntotal_pred: ",tot_class_preds)
-    print(f"Class accuracy is: {(correct_class / (tot_class_preds + 1e-16)) * 100:2f}%")
-    print(f"No obj accuracy is: {(correct_noobj / (tot_noobj + 1e-16)) * 100:2f}%")
-    print(f"Obj accuracy is: {(correct_obj / (tot_obj + 1e-16)) * 100:2f}%")
-    print(f"Distance accuracy is: {(correct_dist / (tot_dist + 1e-16)) * 100:2f}%")
+
+    class_accuracy = (correct_class / (tot_class_preds + 1e-16)) * 100
+    no_obj_accuracy = (correct_noobj / (tot_noobj + 1e-16)) * 100
+    obj_accuracy = (correct_obj / (tot_obj + 1e-16)) * 100
+    distance_accuracy = (correct_dist / (tot_dist + 1e-16)) * 100
+
+    print("correct distance: ", correct_dist, "\ntotal_pred: ", tot_dist)
+    print("correct noobj: ", correct_noobj, "\ntotal_noobj: ", tot_noobj)
+    print("correct class: ", correct_class, "\ntotal_pred: ", tot_class_preds)
+
+    print(f"Class accuracy is: {class_accuracy:2f}%")
+    print(f"No obj accuracy is: {no_obj_accuracy:2f}%")
+    print(f"Obj accuracy is: {obj_accuracy:2f}%")
+    print(f"Distance accuracy is: {distance_accuracy:2f}%")
+
     # Set the model back to training mode
     model.train()
+
+    return class_accuracy, obj_accuracy, no_obj_accuracy, distance_accuracy
 
 
 def get_mean_std(loader):
@@ -507,7 +517,7 @@ def get_loaders():
     from dataset import YOLODataset
 
     IMAGE_SIZE = config.IMAGE_SIZE
-    train_dataset = YOLODataset("Dataset/labels.txt")
+    train_dataset = YOLODataset("Dataset/mini labels.txt")
 
     # DataLoader objects are used to iterate over the data during training and testing.
     train_loader = DataLoader(
@@ -517,7 +527,6 @@ def get_loaders():
         pin_memory=config.PIN_MEMORY,
         shuffle=True,
         drop_last=False,
-
     )
     # test_loader = DataLoader(
     #     dataset=test_dataset,
