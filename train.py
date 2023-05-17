@@ -1,5 +1,6 @@
 from torch.utils.data import DataLoader
 from torch.utils.data import Subset
+import itertools
 from dataset import YOLODataset
 import config
 import torch
@@ -26,7 +27,7 @@ torch.backends.cudnn.benchmark = True
 
 
 # this function will help us find the average performance of our model using cross-validation
-def cross_validation(model,optimizer, loss_fn, scaler, whole_dataset, scaled_anchors):
+def cross_validation(model, loss_fn, scaler, whole_dataset, scaled_anchors, hyperparameters):
     # Define the number of folds for cross-validation
     k_folds = KFold(n_splits=10, shuffle=True, random_state=42)
 
@@ -69,13 +70,16 @@ def cross_validation(model,optimizer, loss_fn, scaler, whole_dataset, scaled_anc
         )
         print("after creating train and eval loaders!")
         # perform training on k-1 folds
+        optimizer = optim.Adam(
+            model.parameters(), lr=hyperparameters[2], weight_decay=config.WEIGHT_DECAY
+        )
         train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors)
         print("after train")
 
         # perform testing on the kth fold
         class_accuracy, obj_accuracy, no_obj_accuracy, distance_accuracy = check_class_accuracy(model, val_loader,
-                                                                                                threshold=config.OBJ_PRESENCE_CONFIDENCE_THRESHOLD,
-                                                                                                dist_threshold=config.CONF_DIST_THRESHOLD)
+                                                                                                threshold=hyperparameters[0],
+                                                                                                dist_threshold=hyperparameters[1])
 
         print("after check_accuracy")
         # here, we are accumulating the accuracy, then we will divide by the number of folds
@@ -91,16 +95,6 @@ def cross_validation(model,optimizer, loss_fn, scaler, whole_dataset, scaled_anc
     avg_distance_accuracy /= k_folds
 
     return avg_class_accuracy, avg_obj_accuracy, avg_no_obj_accuracy, avg_distance_accuracy
-
-
-def calculate_average_metrics(metrics_list):
-    # Convert metrics list to numpy array for easy calculation
-    metrics_array = np.array(metrics_list)
-
-    # Calculate average metrics across all folds
-    avg_metrics = np.mean(metrics_array, axis=0)
-
-    return avg_metrics
 
 
 def train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors):
@@ -168,6 +162,46 @@ def train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors):
         # sets the progress bar's display to show the current mean loss value
         loop.set_postfix(loss=mean_loss)
 
+# perform grid search to find the best hyperparameter value combination
+def grid_search_hyperparameter_tuning(hyperparameter_dictionary, model, loss_fn, scaler, whole_dataset, scaled_anchors):
+
+    # Get all combinations of hyperparameters
+    hyperparameter_combinations = list(itertools.product(*hyperparameter_dictionary.values()))
+    print("all the hyperparameter combinations: ", hyperparameter_combinations)
+    best_accuracy = 0.0
+    best_hyperparameters = {}
+
+    # Iterate over each hyperparameter combination
+    for hyperparameters in hyperparameter_combinations:
+        print("current hyperparameters: ", hyperparameters)
+        # Unpack the hyperparameters
+        OBJ_PRESENCE_CONFIDENCE_THRESHOLD, CONF_DIST_THRESHOLD, LEARNING_RATE = hyperparameters
+
+        # Perform cross-validation
+        avg_class_accuracy, avg_obj_accuracy, avg_no_obj_accuracy, avg_distance_accuracy = cross_validation(model,
+                                                                                                            loss_fn,
+                                                                                                            scaler,
+                                                                                                            whole_dataset,
+                                                                                                            scaled_anchors,
+                                                                                                            hyperparameters)
+
+        # Calculate the average accuracy
+        avg_accuracy = (avg_class_accuracy + avg_obj_accuracy + avg_no_obj_accuracy + avg_distance_accuracy) / 4
+
+        # Check if this combination has the highest accuracy so far
+        if avg_accuracy > best_accuracy:
+            best_accuracy = avg_accuracy
+            best_hyperparameters = {
+                "OBJ_PRESENCE_CONFIDENCE_THRESHOLD": OBJ_PRESENCE_CONFIDENCE_THRESHOLD,
+                "CONF_DIST_THRESHOLD": CONF_DIST_THRESHOLD,
+                "LEARNING_RATE": LEARNING_RATE
+            }
+
+    # Print the best hyperparameter combination and its accuracy
+    print("Best Hyperparameters:", best_hyperparameters)
+    print("Best Accuracy:", best_accuracy)
+
+    return best_hyperparameters, (avg_class_accuracy, avg_obj_accuracy, avg_no_obj_accuracy, avg_distance_accuracy)
 
 def main():
     torch.cuda.empty_cache()
@@ -189,19 +223,40 @@ def main():
             * torch.tensor(config.S).unsqueeze(1).unsqueeze(1).repeat(1, 3, 2)
     ).to(config.DEVICE)
 
-    # perform cross validation
-    whole_dataset = YOLODataset("Dataset/mini labels.txt")
-    avg_class_accuracy, avg_obj_accuracy, avg_no_obj_accuracy, avg_distance_accuracy = cross_validation(model,
-                                                                                                        optimizer,
-                                                                                                        loss_fn, scaler,
-                                                                                                        whole_dataset,
-                                                                                                        scaled_anchors)
-
     # using a custom get_loaders function to create data loaders for the training,
     # testing, and evaluation datasets. The data is loaded from CSV files which
     # contain the file paths and annotations for each image. These data loaders are
     # used later in the training loop.
     train_loader = get_loaders()
+    whole_dataset = YOLODataset("Dataset/mini labels.txt")
+
+    # perform grid search for hyperparameter tuning based on the hyperparameter values
+    # present in the config file. if you want to change the range of values for hyperparameters,
+    # please update the hyper_parameters_dictionary in config file.
+    hyperparameter_dictionary = config.hyper_parameters_dictionary
+    best_hyperparameter_values = grid_search_hyperparameter_tuning(hyperparameter_dictionary, model, loss_fn, scaler, whole_dataset, scaled_anchors)
+
+    # perform cross validation to get the average performance of the model
+    # based on the best hyperparameters obtained during cross-validation
+    avg_class_accuracy, avg_obj_accuracy, avg_no_obj_accuracy, avg_distance_accuracy = cross_validation(model,
+                                                                                                        optimizer,
+                                                                                                        loss_fn, scaler,
+                                                                                                        whole_dataset,
+                                                                                                        scaled_anchors, best_hyperparameter_values)
+
+    print("\nModel performance based on cross validation:")
+    print(f"Class accuracy is: {avg_class_accuracy:2f}%")
+    print(f"No obj accuracy is: {avg_obj_accuracy:2f}%")
+    print(f"Obj accuracy is: {avg_no_obj_accuracy:2f}%")
+    print(f"Distance accuracy is: {avg_distance_accuracy:2f}%")
+
+    # train the model with the whole dataset since now we do know the performance of the model,
+    # no need to split the dataset into train and test to test the model again. we can assume
+    # that our model will perform at least as good as the cross validation result.
+    # I think this function should return us the weights of the model!!
+    train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors)
+
+
 
     # load a previously saved model checkpoint from the specified file config.CHECKPOINT_FILE,
     # and restore the state of the model and optimizer objects so that training can continue

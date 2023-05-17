@@ -34,6 +34,13 @@ CHECKPOINT_FILE = "checkpoint.pth.tar"
 IMG_DIR = DATASET + "/images/"
 LABEL_DIR = DATASET + "/labels/"
 
+# hyper-parameters
+hyper_parameters_dictionary = {
+    "OBJ_PRESENCE_CONFIDENCE_THRESHOLD": [0.35, 0.4, 0.45, 0.5],
+    "CONF_DIST_THRESHOLD": [0.5, 0.7, 0.9, 1.1, 1.3, 1.5], # values are given in meters
+    "LEARNING_RATE": [0.0001, 0.001, 0.005, 0.01]
+}
+
 # change: these can change based on our dataset. check notion cng 492/Dataset/anchors
 # we can check which anchor values dist-yolo used.
 # dist-yolo anchors: 10,13,  16,30,  33,23,  30,61,  62,45,  59,119,  116,90,  156,198,  373,326
