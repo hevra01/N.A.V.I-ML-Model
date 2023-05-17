@@ -102,9 +102,7 @@ def main():
     # testing, and evaluation datasets. The data is loaded from CSV files which
     # contain the file paths and annotations for each image. These data loaders are
     # used later in the training loop.
-    train_loader, test_loader, train_eval_loader = get_loaders(
-        train_csv_path=config.DATASET + "/train.csv", test_csv_path=config.DATASET + "/test.csv"
-    )
+    train_loader= get_loaders()
 
     # load a previously saved model checkpoint from the specified file config.CHECKPOINT_FILE,
     # and restore the state of the model and optimizer objects so that training can continue
@@ -133,9 +131,9 @@ def main():
         # check_class_accuracy(model, train_loader, threshold=config.CONF_THRESHOLD)
 
         # evaluating the model's performance on the test dataset at regular intervals (every 3 epochs) during training.
-        if epoch > 0 and epoch % 3 == 0:
-            check_class_accuracy(model, test_loader, threshold=config.OBJ_PRESENCE_CONFIDENCE_THRESHOLD,
-                                 dist_threshold=config.CONF_DIST_THRESHOLD)
+        # if epoch > 0 and epoch % 3 == 0:
+        #     check_class_accuracy(model, test_loader, threshold=config.OBJ_PRESENCE_CONFIDENCE_THRESHOLD,
+        #                          dist_threshold=config.CONF_DIST_THRESHOLD)
 
             # this is another performance metric. it measures how accurate the alignment of bb's are.
             # pred_boxes, true_boxes = get_evaluation_bboxes(

@@ -125,35 +125,7 @@ class YOLODataset(Dataset):
             targets_out.append(targets_scale)
         return img, tuple(targets_out)
 
-        # targets = torch.zeros((3, self.input_size//32, self.input_size//32, 7))
-        # for box in boxes:
-        #     x, y, w, h, c, d = box
-        #     box = [x / image.width, y / image.height, w / image.width, h / image.height, c, d]
-        #     ious = []
-        #     for scale in range(3):
-        #         for i in range(self.input_size//32):
-        #             for j in range(self.input_size//32):
-        #                 anchor_box = torch.zeros(4)
-        #                 anchor_box[2:] = torch.tensor(self.anchors[scale])
-        #                 cx = (j + 0.5) / self.input_size//32
-        #                 cy = (i + 0.5) / self.input_size//32
-        #                 anchor_xywh = torch.zeros(4)
-        #                 anchor_xywh[:2] = torch.tensor([cx, cy])
-        #                 anchor_xywh[2:] = anchor_box[2:] / self.input_size
-        #                 iou = bbox_iou(anchor_xywh, torch.tensor(box))
-        #                 ious.append((iou, scale, i, j))
-        #     best_iou, best_scale, i, j = max(ious, key=lambda x: x[0])
-        #     anchor_taken = targets[best_scale, i, j, 0]
-        #     if not anchor_taken:
-        #         targets[best_scale, i, j, 0] = 1
-        #         targets[best_scale, i, j, 1:5] = torch.tensor(box[:4])
-        #         targets[best_scale, i, j, 5] = box[4]
-        #         targets[best_scale, i, j, 6] = box[5]
-        #     else:
-        #         if best_iou > 0.5:
-        #             targets[best_scale, i, j, 0] = -1
-        #         else:
-        #             pass
+
 
 
 def box_iou(box1, box2):

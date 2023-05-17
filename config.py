@@ -13,7 +13,7 @@ DATASET = 'KITTI'
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # seed_everything()  # If you want deterministic behavior
 NUM_WORKERS = 4
-BATCH_SIZE = 2
+BATCH_SIZE = 4
 IMAGE_SIZE = 640  # change based on kitti
 NUM_CLASSES = 7  # change: this will depend on our dataset. changed based on kitti
 LEARNING_RATE = 1e-5
@@ -64,8 +64,8 @@ train_transforms = A.Compose(
             ],
             p=1.0,
         ),
+
         A.HorizontalFlip(p=0.5),
-        A.Blur(p=0.1),
         A.CLAHE(p=0.1),
         A.Posterize(p=0.1),
         A.ToGray(p=0.1),
