@@ -1,7 +1,9 @@
 import config
 import torch
 import torch.optim as optim
+from sklearn.model_selection import KFold
 
+from dataset import YOLODataset
 from model import YOLOv3
 from tqdm import tqdm
 from utils import (
@@ -17,6 +19,47 @@ from utils import (
 from cost import YoloLoss
 
 torch.backends.cudnn.benchmark = True
+
+def cross_validation(model, dataset):
+    train_dataset = YOLODataset("Dataset/labels.txt")
+
+    # Define the number of folds for cross-validation
+    k_folds = 5
+
+    # Split your dataset into K folds
+    kfold = KFold(n_splits=k_folds, shuffle=True)
+
+    # Loop over the K folds
+    for train_index, val_index in kfold.split(train_dataset):
+        # Get the training and validation sets for the current fold
+        train_set = dataset[train_index]
+        val_set = dataset[val_index]
+
+        # Train your YOLOv3 model on the training set
+        model.train(train_set)
+
+        # Evaluate the model on the validation set
+        metrics = check_class_accuracy(model, loader, threshold, dist_threshold)
+
+        # Print the evaluation metrics for the current fold
+        print("Fold metrics:", metrics)
+
+    # Calculate the average metrics across all folds
+    avg_metrics = calculate_average_metrics()
+
+    # Print the average metrics
+    print("Average metrics:", avg_metrics)
+
+
+def calculate_average_metrics(metrics_list):
+    # Convert metrics list to numpy array for easy calculation
+    metrics_array = np.array(metrics_list)
+
+    # Calculate average metrics across all folds
+    avg_metrics = np.mean(metrics_array, axis=0)
+
+    return avg_metrics
+
 
 
 def train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors):

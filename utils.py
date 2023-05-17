@@ -503,7 +503,7 @@ def load_checkpoint(checkpoint_file, model, optimizer, lr):
 
 
 # create PyTorch data loaders for training, testing, and evaluation
-def get_loaders(train_csv_path, test_csv_path):
+def get_loaders():
     from dataset import YOLODataset
 
     IMAGE_SIZE = config.IMAGE_SIZE
