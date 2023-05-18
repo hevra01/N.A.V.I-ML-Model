@@ -1,12 +1,14 @@
 from torch.utils.data import DataLoader
 from torch.utils.data import Subset
 import itertools
+
 from dataset import YOLODataset
 import config
 import torch
 import torch.optim as optim
 from sklearn.model_selection import KFold
 import numpy as np
+import pickle
 
 from dataset import YOLODataset
 from model import YOLOv3
@@ -47,8 +49,8 @@ def cross_validation(model, loss_fn, scaler, whole_dataset, scaled_anchors, hype
         val_subset = Subset(whole_dataset, val_indices)
 
         # for debugging purposes. yes, nice! 90% goes for training, 10% goes for testing
-        t_percent = len(train_subset)/whole_dataset.__len__()
-        v_percent = len(val_subset)/whole_dataset.__len__()
+        t_percent = len(train_subset) / whole_dataset.__len__()
+        v_percent = len(val_subset) / whole_dataset.__len__()
         print("train_subset percentage: ", t_percent, "val_subset percentage: ", v_percent)
         # Create the train and validation loaders using DataLoader
         train_loader = DataLoader(
@@ -73,13 +75,17 @@ def cross_validation(model, loss_fn, scaler, whole_dataset, scaled_anchors, hype
         optimizer = optim.Adam(
             model.parameters(), lr=hyperparameters[2], weight_decay=config.WEIGHT_DECAY
         )
-        train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors)
+        for epoch in range(config.NUM_EPOCHS):
+            train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors)
+
         print("after train")
 
         # perform testing on the kth fold
         class_accuracy, obj_accuracy, no_obj_accuracy, distance_accuracy = check_class_accuracy(model, val_loader,
-                                                                                                threshold=hyperparameters[0],
-                                                                                                dist_threshold=hyperparameters[1])
+                                                                                                threshold=
+                                                                                                hyperparameters[0],
+                                                                                                dist_threshold=
+                                                                                                hyperparameters[1])
 
         print("after check_accuracy")
         # here, we are accumulating the accuracy, then we will divide by the number of folds
@@ -87,6 +93,12 @@ def cross_validation(model, loss_fn, scaler, whole_dataset, scaled_anchors, hype
         avg_obj_accuracy += obj_accuracy
         avg_no_obj_accuracy += no_obj_accuracy
         avg_distance_accuracy += distance_accuracy
+
+        if config.SAVE_MODEL:
+            name = "fold_" + str(fold) + "_model.pk"
+            with open(name, 'wb') as file:
+                pickle.dump(model, file)
+                file.close()
 
     # in order to get the average, we need to divide by the number of folds
     avg_class_accuracy /= k_folds
@@ -164,7 +176,6 @@ def train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors):
 
 # perform grid search to find the best hyperparameter value combination
 def grid_search_hyperparameter_tuning(hyperparameter_dictionary, model, loss_fn, scaler, whole_dataset, scaled_anchors):
-
     # Get all combinations of hyperparameters
     hyperparameter_combinations = list(itertools.product(*hyperparameter_dictionary.values()))
     print("all the hyperparameter combinations: ", hyperparameter_combinations)
@@ -203,6 +214,7 @@ def grid_search_hyperparameter_tuning(hyperparameter_dictionary, model, loss_fn,
 
     return best_hyperparameters, (avg_class_accuracy, avg_obj_accuracy, avg_no_obj_accuracy, avg_distance_accuracy)
 
+
 def main():
     torch.cuda.empty_cache()
     # defining the necessary components for training a YOLOv3
@@ -223,26 +235,37 @@ def main():
             * torch.tensor(config.S).unsqueeze(1).unsqueeze(1).repeat(1, 3, 2)
     ).to(config.DEVICE)
 
+    from PIL import Image
+    transform = config.train_transforms
+    from yolov5.utils.dataloaders import letterbox
+    img = np.array(Image.open("Dataset/images/000000.png").convert("RGB"))
+    augmentations = transform(image=img)
+    img = augmentations["image"]
+    predict(model, img.unsqueeze(0))
+
     # using a custom get_loaders function to create data loaders for the training,
     # testing, and evaluation datasets. The data is loaded from CSV files which
     # contain the file paths and annotations for each image. These data loaders are
     # used later in the training loop.
     train_loader = get_loaders()
-    whole_dataset = YOLODataset("Dataset/mini labels.txt")
+    whole_dataset = YOLODataset("Dataset/labels.txt")
 
     # perform grid search for hyperparameter tuning based on the hyperparameter values
     # present in the config file. if you want to change the range of values for hyperparameters,
     # please update the hyper_parameters_dictionary in config file.
     hyperparameter_dictionary = config.hyper_parameters_dictionary
-    best_hyperparameter_values = grid_search_hyperparameter_tuning(hyperparameter_dictionary, model, loss_fn, scaler, whole_dataset, scaled_anchors)
+    best_hyperparameter_values = grid_search_hyperparameter_tuning(hyperparameter_dictionary, model, loss_fn, scaler,
+                                                                   whole_dataset, scaled_anchors)
 
+    best_hyperparameter_values = {}
     # perform cross validation to get the average performance of the model
     # based on the best hyperparameters obtained during cross-validation
     avg_class_accuracy, avg_obj_accuracy, avg_no_obj_accuracy, avg_distance_accuracy = cross_validation(model,
                                                                                                         optimizer,
                                                                                                         loss_fn, scaler,
                                                                                                         whole_dataset,
-                                                                                                        scaled_anchors, best_hyperparameter_values)
+                                                                                                        scaled_anchors,
+                                                                                                        best_hyperparameter_values)
 
     print("\nModel performance based on cross validation:")
     print(f"Class accuracy is: {avg_class_accuracy:2f}%")
@@ -255,50 +278,51 @@ def main():
     # that our model will perform at least as good as the cross validation result.
     # I think this function should return us the weights of the model!!
     train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors)
-
-
+    with open('dist_yolo_model.pk', 'wb') as file:
+        pickle.dump(model, file)
+        file.close()
 
     # load a previously saved model checkpoint from the specified file config.CHECKPOINT_FILE,
     # and restore the state of the model and optimizer objects so that training can continue
     # from the previously saved point.
-    if config.LOAD_MODEL:
-        load_checkpoint(
-            config.CHECKPOINT_FILE, model, optimizer, config.LEARNING_RATE
-        )
+    # if config.LOAD_MODEL:
+    #     load_checkpoint(
+    #         config.CHECKPOINT_FILE, model, optimizer, config.LEARNING_RATE
+    #     )
+    #
+    #
+    # for epoch in range(config.NUM_EPOCHS):
+    #     train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors)
 
+    # if config.SAVE_MODEL:
+    #    save_checkpoint(model, optimizer, filename=f"checkpoint.pth.tar")
 
-    for epoch in range(config.NUM_EPOCHS):
-        train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors)
+    # print(f"Currently epoch {epoch}")
+    # print("On Train Eval loader:")
+    # print("On Train loader:")
+    # check_class_accuracy(model, train_loader, threshold=config.CONF_THRESHOLD)
 
-        # if config.SAVE_MODEL:
-        #    save_checkpoint(model, optimizer, filename=f"checkpoint.pth.tar")
+    # evaluating the model's performance on the test dataset at regular intervals (every 3 epochs) during training.
+    # if epoch > 0 and epoch % 3 == 0:
+    #     check_class_accuracy(model, test_loader, threshold=config.OBJ_PRESENCE_CONFIDENCE_THRESHOLD,
+    #                          dist_threshold=config.CONF_DIST_THRESHOLD)
 
-        # print(f"Currently epoch {epoch}")
-        # print("On Train Eval loader:")
-        # print("On Train loader:")
-        # check_class_accuracy(model, train_loader, threshold=config.CONF_THRESHOLD)
-
-        # evaluating the model's performance on the test dataset at regular intervals (every 3 epochs) during training.
-        # if epoch > 0 and epoch % 3 == 0:
-        #     check_class_accuracy(model, test_loader, threshold=config.OBJ_PRESENCE_CONFIDENCE_THRESHOLD,
-        #                          dist_threshold=config.CONF_DIST_THRESHOLD)
-
-        # this is another performance metric. it measures how accurate the alignment of bb's are.
-        # pred_boxes, true_boxes = get_evaluation_bboxes(
-        #     test_loader,
-        #     model,
-        #     iou_threshold=config.NMS_IOU_THRESH,
-        #     anchors=config.ANCHORS,
-        #     threshold=config.CLASS_CONF_THRESHOLD,
-        # )
-        # mapval = mean_average_precision(
-        #     pred_boxes,
-        #     true_boxes,
-        #     iou_threshold=config.MAP_IOU_THRESH,
-        #     box_format="midpoint",
-        #     num_classes=config.NUM_CLASSES,
-        # )
-        # print(f"MAP: {mapval.item()}")
+    # this is another performance metric. it measures how accurate the alignment of bb's are.
+    # pred_boxes, true_boxes = get_evaluation_bboxes(
+    #     test_loader,
+    #     model,
+    #     iou_threshold=config.NMS_IOU_THRESH,
+    #     anchors=config.ANCHORS,
+    #     threshold=config.CLASS_CONF_THRESHOLD,
+    # )
+    # mapval = mean_average_precision(
+    #     pred_boxes,
+    #     true_boxes,
+    #     iou_threshold=config.MAP_IOU_THRESH,
+    #     box_format="midpoint",
+    #     num_classes=config.NUM_CLASSES,
+    # )
+    # print(f"MAP: {mapval.item()}")
 
 
 if __name__ == '__main__':
