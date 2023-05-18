@@ -174,6 +174,42 @@ def train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors):
         # sets the progress bar's display to show the current mean loss value
         loop.set_postfix(loss=mean_loss)
 
+
+# this function gets the output of the model, which is predictions in three
+# different scales, and combines them
+
+
+def predict(model, img):
+    bbox = []
+    confidences = []
+    class_ids = []
+
+    predictions = model(img)
+
+    for scale in predictions:
+        for image in scale:
+            for anchor in image:
+                for gridx in anchor:
+                    for gridy in gridx:
+                        print(gridy.shape)
+                        scores = gridy[:7]
+                        class_id = np.argmax(scores.detach().numpy)
+                        confidence = scores[class_id]
+                        if confidence > 0.1:
+                            center_x = int(gridy[7] * config.IMAGE_SIZE)
+                            center_y = int(gridy[8] * config.IMAGE_SIZE)
+                            w = int(gridy[9] * config.IMAGE_SIZE)
+                            h = int(gridy[9] * config.IMAGE_SIZE)
+
+                            x = int(center_x - (w / 2))
+                            y = int(center_y - (h / 2))
+                            bbox.append([x, y, w, h])
+                            class_ids.append(class_id)
+                            confidences.append(float(confidence))
+    result = non_max_suppression(bbox,config.NMS_IOU_THRESH,config.OBJ_PRESENCE_CONFIDENCE_THRESHOLD)
+    print(result)
+    exit(1)
+
 # perform grid search to find the best hyperparameter value combination
 def grid_search_hyperparameter_tuning(hyperparameter_dictionary, model, loss_fn, scaler, whole_dataset, scaled_anchors):
     # Get all combinations of hyperparameters
