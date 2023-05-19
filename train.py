@@ -201,7 +201,7 @@ def train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors):
 
 def predict(model, img):
     bbox = []
-    confidences = []
+    class_confidences = []
     class_ids = []
     distances = []
 
@@ -228,7 +228,7 @@ def predict(model, img):
                         class_confidence = scores[class_id]
                         # we need to add objectness to the model prediction as well.
                         # Discard bad detections and continue.
-                        if confidence > config.OBJ_PRESENCE_CONFIDENCE_THRESHOLD:
+                        if object_confidence > config.OBJ_PRESENCE_CONFIDENCE_THRESHOLD:
                             center_x = int(gridy[7] * config.IMAGE_SIZE)
                             center_y = int(gridy[8] * config.IMAGE_SIZE)
                             w = int(gridy[9] * config.IMAGE_SIZE)
@@ -239,7 +239,7 @@ def predict(model, img):
 
                             bbox.append([x, y, w, h])
                             class_ids.append(class_id)
-                            confidences.append(float(confidence))
+                            class_confidences.append(max(scores.cpu().detach().numpy()))
                             # last element of the prediction is the distance
                             distances.append(distance)
 
@@ -247,15 +247,17 @@ def predict(model, img):
     # so we pass the bounding boxes to NMS function.
     # Based on the confidence threshold and nms threshold the boxes will get suppressed, and we will
     # get the box which detects the object correctly.
+
     detected_object = []
-    indices = cv2.dnn.NMSBoxes(bbox, confidences, config.CLASS_CONFIDENCE_THRESHOLD, config.NMS_THRESHOLD)
+    print(class_confidences)
+    indices = cv2.dnn.NMSBoxes(bbox, class_confidences, config.CLASS_CONFIDENCE_THRESHOLD, config.NMS_THRESHOLD)
     print(indices)
     for i in indices:
         x, y, w, h = bbox[i]
         label = config.KITTI_CLASSES[class_ids[i]]
         distance = distances[i]
-        confidence = confidences[i]
-        detected_object.append([x, y, w, h, label, confidence, distance])
+        confidence = class_confidences[i]
+        detected_object.append([x, y, w, h, label, confidence, distance.item()])
 
     print(detected_object)
     exit(1)
