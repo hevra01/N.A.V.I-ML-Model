@@ -3,9 +3,10 @@
 # according to dist-yolo rather than sole yolo
 
 import torch
-import torch.optim as optim
 import torch.nn as nn
-import torch.nn.functional as F
+
+
+
 
 """ 
 Information about architecture config:
@@ -64,7 +65,7 @@ class CNNBlock(nn.Module):
         super(CNNBlock, self).__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, bias=not bn_act, **kwargs)
         self.bn = nn.BatchNorm2d(out_channels)
-        self.leaky = nn.LeakyReLU(0.1)
+        self.leaky = nn.LeakyReLU(0.1,inplace=False)
         self.use_bn_act = bn_act
 
     def forward(self, x):
@@ -89,7 +90,7 @@ class ResidualBlock(nn.Module):
         # connections in a neural network.
         self.layers = nn.ModuleList()
         for repeat in range(num_repeats):
-            self.layers += [
+            self.layers = self.layers + [
                 nn.Sequential(
                     CNNBlock(channels, channels // 2, kernel_size=1),
                     CNNBlock(channels // 2, channels, kernel_size=3, padding=1),
@@ -157,7 +158,8 @@ class YOLOv3(nn.Module):
         for layer in self.layers:
             if isinstance(layer, ScalePrediction):
                 # append its output to a list and later on compute the loss for each of the predictions separetely.
-                outputs.append(layer(x))
+                output = layer(x)
+                outputs.append(torch.sigmoid(output))
                 continue
 
             x = layer(x)
@@ -208,7 +210,7 @@ class YOLOv3(nn.Module):
             # Upsampling the feature map and concatenating with a previous layer. 
             elif isinstance(module, str):
                 if module == "S":
-                    layers += [
+                    layers = layers + [
                         ResidualBlock(in_channels, use_residual=False, num_repeats=1),
                         CNNBlock(in_channels, in_channels // 2, kernel_size=1),
                         ScalePrediction(in_channels // 2, num_classes=self.num_classes),

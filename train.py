@@ -1,3 +1,5 @@
+import numpy
+from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data import Subset
 import itertools
@@ -28,8 +30,25 @@ from cost import YoloLoss
 
 torch.backends.cudnn.benchmark = True
 
+import torch.nn as nn
+
+
+def initialize_weights(model):
+    for module in model.modules():
+        if isinstance(module, nn.Conv2d):
+            nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='relu')
+            if module.bias is not None:
+                nn.init.constant_(module.bias, 0)
+        elif isinstance(module, nn.BatchNorm2d):
+            nn.init.constant_(module.weight, 1)
+            nn.init.constant_(module.bias, 0)
+        elif isinstance(module, nn.Linear):
+            nn.init.normal_(module.weight, 0, 0.01)
+            nn.init.constant_(module.bias, 0)
+
 
 # this function will help us find the average performance of our model using cross-validation
+
 def cross_validation(model, loss_fn, scaler, whole_dataset, scaled_anchors, hyperparameters):
     # Define the number of folds for cross-validation
     k_folds = KFold(n_splits=10, shuffle=True, random_state=42)
@@ -204,8 +223,9 @@ def predict(model, img):
                         # get the class predictions
                         scores = gridy[:7]
                         distance = gridy[-1]
-                        class_id = np.argmax(scores.detach().numpy)
-                        confidence = scores[class_id]
+                        object_confidence = gridy[11]  # objectnessScore
+                        class_id = np.argmax(scores.cpu().detach().numpy())
+                        class_confidence = scores[class_id]
                         # we need to add objectness to the model prediction as well.
                         # Discard bad detections and continue.
                         if confidence > config.OBJ_PRESENCE_CONFIDENCE_THRESHOLD:
@@ -239,6 +259,7 @@ def predict(model, img):
 
     print(detected_object)
     exit(1)
+
 
 # perform grid search to find the best hyperparameter value combination
 def grid_search_hyperparameter_tuning(hyperparameter_dictionary, model, loss_fn, scaler, whole_dataset, scaled_anchors):
@@ -286,6 +307,8 @@ def main():
     # defining the necessary components for training a YOLOv3
     # creating an instance of the model class
     model = YOLOv3(num_classes=config.NUM_CLASSES).to(config.DEVICE)
+    initialize_weights(model)
+
     # creating an instance of the Adam optimizer
     optimizer = optim.Adam(
         model.parameters(), lr=config.LEARNING_RATE, weight_decay=config.WEIGHT_DECAY
@@ -301,20 +324,22 @@ def main():
             * torch.tensor(config.S).unsqueeze(1).unsqueeze(1).repeat(1, 3, 2)
     ).to(config.DEVICE)
 
-    from PIL import Image
-    transform = config.train_transforms
-    from yolov5.utils.dataloaders import letterbox
-    img = np.array(Image.open("Dataset/images/000000.png").convert("RGB"))
-    augmentations = transform(image=img)
-    img = augmentations["image"]
-    predict(model, img.unsqueeze(0))
-
     # using a custom get_loaders function to create data loaders for the training,
     # testing, and evaluation datasets. The data is loaded from CSV files which
     # contain the file paths and annotations for each image. These data loaders are
     # used later in the training loop.
     train_loader = get_loaders()
     whole_dataset = YOLODataset("Dataset/labels.txt")
+
+    for epoch in range(2):
+        train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors)
+
+    from PIL import Image
+    transform = config.train_transforms
+    img = np.array(Image.open("Dataset/images/000000.png").convert("RGB"))
+    augmentations = transform(image=img)
+    img = augmentations["image"]
+    predict(model, img.unsqueeze(0).to(config.DEVICE))
 
     # perform grid search for hyperparameter tuning based on the hyperparameter values
     # present in the config file. if you want to change the range of values for hyperparameters,

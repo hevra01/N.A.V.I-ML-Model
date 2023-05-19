@@ -61,10 +61,11 @@ class YoloLoss(nn.Module):
         #   FOR BOX COORDINATES    #
         # ======================== #
 
-        predictions[..., 1:3] = self.sigmoid(predictions[..., 1:3])  # x,y coordinates
-        target[..., 3:5] = torch.log(
-            (1e-16 + target[..., 3:5] / anchors)
-        )  # width, height coordinates
+        predictions_log = torch.log(1e-16 + target[..., 3:5] / anchors)
+        sigmoid_input = predictions[..., 1:3].clone()
+        predictions_sigmoid = self.sigmoid(sigmoid_input.clone())
+        predictions = torch.cat([predictions[..., 0:1], predictions_sigmoid, predictions[..., 3:]], dim=-1)
+        target = torch.cat([target[..., :3], predictions_log, target[..., 5:]], dim=-1)
         box_loss = torch.mean((predictions[..., 1:5][obj] - target[..., 1:5][obj])**2)
 
         # ================== #
