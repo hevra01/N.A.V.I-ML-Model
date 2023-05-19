@@ -19,13 +19,13 @@ NUM_CLASSES = 7  # change: this will depend on our dataset. changed based on kit
 LEARNING_RATE = 1e-5
 WEIGHT_DECAY = 1e-4
 NUM_EPOCHS = 100
-OBJ_PRESENCE_CONFIDENCE_THRESHOLD = 0.05
 # this is likely to change. used to calculate the accuracy of dist estimation. if the difference of the estimated
 # distance is below this threshold than assume for a correct prediction. if the difference is more than the threshold
 # calculate it as wrong prediction.
 CONF_DIST_THRESHOLD = 1
-MAP_IOU_THRESH = 0.5
-NMS_IOU_THRESH = 0.45
+OBJ_PRESENCE_CONFIDENCE_THRESHOLD = 0.05 # Filters low probability detections.
+NMS_THRESHOLD = 0.6 # To remove overlapping bounding boxes
+CLASS_CONFIDENCE_THRESHOLD = 0.5 # To filter low probability class scores.
 S = [IMAGE_SIZE // 32, IMAGE_SIZE // 16, IMAGE_SIZE // 8]
 PIN_MEMORY = True
 LOAD_MODEL = False

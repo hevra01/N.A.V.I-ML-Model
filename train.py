@@ -1,6 +1,7 @@
 from torch.utils.data import DataLoader
 from torch.utils.data import Subset
 import itertools
+import cv2
 
 from dataset import YOLODataset
 import config
@@ -183,19 +184,31 @@ def predict(model, img):
     bbox = []
     confidences = []
     class_ids = []
+    distances = []
 
+    # The network predicts offsets (x, y, w, h) for each anchor box, where (x, y) represents the center coordinates
+    # of the bounding box and (w, h) represents its width and height. Additionally, class probabilities are
+    # predicted for each anchor box to determine the object class it belongs to.
     predictions = model(img)
 
+    # prediction in 3 scales
     for scale in predictions:
+        # iterate over the batch. we usually send only one image at a time
         for image in scale:
+            # there are 3 anchors
             for anchor in image:
+                # iterate over the bounding boxes horizontally
                 for gridx in anchor:
+                    # iterate over the bounding boxes vertically
                     for gridy in gridx:
-                        print(gridy.shape)
+                        # get the class predictions
                         scores = gridy[:7]
+                        distance = gridy[-1]
                         class_id = np.argmax(scores.detach().numpy)
                         confidence = scores[class_id]
-                        if confidence > 0.1:
+                        # we need to add objectness to the model prediction as well.
+                        # Discard bad detections and continue.
+                        if confidence > config.OBJ_PRESENCE_CONFIDENCE_THRESHOLD:
                             center_x = int(gridy[7] * config.IMAGE_SIZE)
                             center_y = int(gridy[8] * config.IMAGE_SIZE)
                             w = int(gridy[9] * config.IMAGE_SIZE)
@@ -203,11 +216,28 @@ def predict(model, img):
 
                             x = int(center_x - (w / 2))
                             y = int(center_y - (h / 2))
+
                             bbox.append([x, y, w, h])
                             class_ids.append(class_id)
                             confidences.append(float(confidence))
-    result = non_max_suppression(bbox,config.NMS_IOU_THRESH,config.OBJ_PRESENCE_CONFIDENCE_THRESHOLD)
-    print(result)
+                            # last element of the prediction is the distance
+                            distances.append(distance)
+
+    # Now we have got all the bounding boxes, but we need only one bounding box for each object,
+    # so we pass the bounding boxes to NMS function.
+    # Based on the confidence threshold and nms threshold the boxes will get suppressed, and we will
+    # get the box which detects the object correctly.
+    detected_object = []
+    indices = cv2.dnn.NMSBoxes(bbox, confidences, config.CLASS_CONFIDENCE_THRESHOLD, config.NMS_THRESHOLD)
+    print(indices)
+    for i in indices:
+        x, y, w, h = bbox[i]
+        label = config.KITTI_CLASSES[class_ids[i]]
+        distance = distances[i]
+        confidence = confidences[i]
+        detected_object.append([x, y, w, h, label, confidence, distance])
+
+    print(detected_object)
     exit(1)
 
 # perform grid search to find the best hyperparameter value combination
