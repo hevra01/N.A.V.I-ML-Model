@@ -139,22 +139,6 @@ def train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors):
     # batch_idx contains the index number of the current batch,
     # while (x, y) contains the inputs x and labels y for the current batch.
     for batch_idx, (x, y) in enumerate(loop):
-        # move the input data (x) and the targets (y) onto the GPU device
-        # specified in the configuration file (config.DEVICE)
-        # scale1 = []
-        # scale2 = []
-        # scale3 = []
-        #
-        # # y is originally a list of images each with 3 scales. we need
-        # # to convert it into a list of 3 scales that has images.
-        # for img in y:
-        #     scale1.append(img[0])
-        #     scale2.append(img[1])
-        #     scale3.append(img[2])
-        #
-        # scale1 = torch.stack(scale1)
-        # scale2 = torch.stack(scale2)
-        # scale3 = torch.stack(scale3)
 
         x = x.to(config.DEVICE)
         y0, y1, y2 = (
@@ -192,7 +176,9 @@ def train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors):
         # update progress bar
         mean_loss = sum(losses) / len(losses)
         # sets the progress bar's display to show the current mean loss value
+        # the loss on the progress bar is being updated after every batch
         loop.set_postfix(loss=mean_loss)
+        print(losses)
 
 
 # this function gets the output of the model, which is predictions in three
@@ -331,7 +317,7 @@ def main():
     # contain the file paths and annotations for each image. These data loaders are
     # used later in the training loop.
     train_loader = get_loaders()
-    whole_dataset = YOLODataset("Dataset/labels.txt")
+    #whole_dataset = YOLODataset("Dataset/labels.txt")
 
     for epoch in range(2):
         train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors)

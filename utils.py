@@ -517,7 +517,7 @@ def get_loaders():
     from dataset import YOLODataset
 
     IMAGE_SIZE = config.IMAGE_SIZE
-    train_dataset = YOLODataset("Dataset/labels.txt")
+    train_dataset = YOLODataset("Dataset/mini_labels.txt")
 
     # DataLoader objects are used to iterate over the data during training and testing.
     train_loader = DataLoader(
