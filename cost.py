@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+
+import config
 import utils
 from utils import intersection_over_union
 
@@ -7,10 +9,10 @@ from utils import intersection_over_union
 class YoloLoss(nn.Module):
     def __init__(self):
         super().__init__()
-        self.mse = nn.MSELoss() # for the bounding box predictions, and distance estimation
-        self.bce = nn.BCEWithLogitsLoss() # for objectness prediction
-        self.entropy = nn.CrossEntropyLoss() # for class prediction
-        self.sigmoid = nn.Sigmoid() # activation function
+        self.mse = nn.MSELoss()  # for the bounding box predictions, and distance estimation
+        self.bce = nn.BCEWithLogitsLoss()  # for objectness prediction
+        self.entropy = nn.CrossEntropyLoss()  # for class prediction
+        self.sigmoid = nn.Sigmoid()  # activation function
 
         # Constants/hyperparameters signifying how much to pay for each respective part of the loss
         self.lambda_class = 1
@@ -20,7 +22,6 @@ class YoloLoss(nn.Module):
         self.lambda_dist = 10  # for the distance prediction
 
     def forward(self, predictions, target, anchors):
-
         # [..., 0] => gets the zeroth index of all the rows, which is about whether an object is present or not
         # 1 means object is present, 0 means the object is not present, hence there is no need to
         # punish the model for incorrect class or distance estimation since there is no object anyways
@@ -69,7 +70,7 @@ class YoloLoss(nn.Module):
 
         bb_predicted_by_model = predictions[..., 7:11][obj].clone()
         # compute mse loss for boxes
-        box_loss = torch.mean((bb_predicted_by_model - target[..., 1:5][obj])**2)
+        box_loss = torch.sqrt(self.mse(bb_predicted_by_model, target[..., 1:5][obj]))  # mean squared logarithmic error
 
         # ================== #
         #   FOR CLASS LOSS   #

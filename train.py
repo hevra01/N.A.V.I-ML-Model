@@ -4,6 +4,8 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Subset
 import itertools
 import cv2
+from scipy import stats
+from torchvision import models
 
 from dataset import YOLODataset
 import config
@@ -139,7 +141,6 @@ def train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors):
     # batch_idx contains the index number of the current batch,
     # while (x, y) contains the inputs x and labels y for the current batch.
     for batch_idx, (x, y) in enumerate(loop):
-
         x = x.to(config.DEVICE)
         y0, y1, y2 = (
             y[0].to(config.DEVICE),
@@ -174,11 +175,10 @@ def train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors):
         scaler.update()
 
         # update progress bar
-        mean_loss = sum(losses) / len(losses)
+        median_loss = stats.trim_mean(losses, 0.1)
         # sets the progress bar's display to show the current mean loss value
         # the loss on the progress bar is being updated after every batch
-        loop.set_postfix(loss=mean_loss)
-        print(losses)
+        loop.set_postfix(loss=median_loss)
 
 
 # this function gets the output of the model, which is predictions in three
@@ -317,7 +317,7 @@ def main():
     # contain the file paths and annotations for each image. These data loaders are
     # used later in the training loop.
     train_loader = get_loaders()
-    #whole_dataset = YOLODataset("Dataset/labels.txt")
+    # whole_dataset = YOLODataset("Dataset/labels.txt")
 
     for epoch in range(2):
         train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors)

@@ -12,13 +12,13 @@ from utils import seed_everything
 DATASET = 'KITTI'
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # seed_everything()  # If you want deterministic behavior
-NUM_WORKERS = 0
-BATCH_SIZE = 2
+NUM_WORKERS = 4
+BATCH_SIZE = 4
 IMAGE_SIZE = 640  # change based on kitti
 NUM_CLASSES = 7  # change: this will depend on our dataset. changed based on kitti
-LEARNING_RATE = 1e-6
+LEARNING_RATE = 1e-5
 WEIGHT_DECAY = 1e-4
-NUM_EPOCHS = 100
+NUM_EPOCHS = 200 #based on dist-yolo
 # this is likely to change. used to calculate the accuracy of dist estimation. if the difference of the estimated
 # distance is below this threshold than assume for a correct prediction. if the difference is more than the threshold
 # calculate it as wrong prediction.
