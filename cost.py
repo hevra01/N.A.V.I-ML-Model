@@ -55,18 +55,22 @@ class YoloLoss(nn.Module):
         box_preds = torch.cat([self.sigmoid(bb_xy_to_be_sigmoided), torch.exp(bb_wh_to_be_sigmoided) * anchors],
                               dim=-1)
         ious = intersection_over_union(box_preds[obj], target[..., 1:5][obj]).detach()
-        model_obj_prediction = predictions[..., 11][obj].unsqueeze(1).clone()
+        to_be_unsqueezed = predictions[..., 11][obj].clone()
+        model_obj_prediction = to_be_unsqueezed.unsqueeze(1)
         object_loss = self.bce(model_obj_prediction, (ious * target[..., 0:1][obj]))
 
         # ======================== #
         #   FOR BOX COORDINATES    #
         # ======================== #
 
-        target[..., 3:5] = torch.log(1e-16 + target[..., 3:5] / anchors)
+        target_cloned = target[..., 3:5].clone()
+        # target[..., 3:5] = torch.log(1e-16 + target_cloned / anchors)
+        target = torch.cat([target[..., :3], torch.log(1e-16 + target_cloned / anchors), target[..., 5:]], dim=-1)
 
         # apply sigmoid to x, y coordinates to convert to bounding boxes
         sigmoid_input = predictions[..., 7:9].clone()
-        predictions[..., 7:9] = self.sigmoid(sigmoid_input.clone())
+        # predictions[..., 7:9] = self.sigmoid(sigmoid_input.clone())
+        predictions = torch.cat([predictions[..., :7], self.sigmoid(sigmoid_input), predictions[..., 9:]], dim=-1)
 
         bb_predicted_by_model = predictions[..., 7:11][obj].clone()
         # compute mse loss for boxes
@@ -91,13 +95,13 @@ class YoloLoss(nn.Module):
         # Make sure both tensors have the same shape
         assert target[..., 6][obj].shape == predictions[..., -1][obj].shape
 
-        dist_targets = target[..., 6][obj]
+        dist_targets = target[..., 6][obj].clone()
         # the model's last prediction is distance hence -1 to get the last element
-        dist_predictions = predictions[..., -1][obj]
-        dist_loss = self.mse(
-            dist_predictions, dist_targets
-        )
-
+        dist_predictions = predictions[..., -1][obj].clone()
+        # dist_loss = torch.sqrt(self.mse(torch.log(dist_predictions + 1), torch.log(dist_targets + 1))) # mean squared logarithmic error
+        correct_dist = (abs(dist_predictions - dist_targets)) <= config.CONF_DIST_THRESHOLD
+        correct_dist = torch.sum(correct_dist)
+        dist_loss = 1 - (correct_dist.item() / dist_targets.shape[0])
         return (
                 self.lambda_box * box_loss
                 + self.lambda_obj * object_loss

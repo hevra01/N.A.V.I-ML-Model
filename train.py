@@ -294,8 +294,28 @@ def main():
     torch.cuda.empty_cache()
     # defining the necessary components for training a YOLOv3
     # creating an instance of the model class
+    # model = YOLOv3(num_classes=config.NUM_CLASSES).to(config.DEVICE)
+    # model.load_darknet_weights(weights_path="yolov31.weights")
+    # initialize_weights(model)
+
+    # recent
+    # Load the Darknet-53 weights (previously trained on ImageNet)
+    darknet53_weights_path = "darknet53_weights.pth"
+    darknet53_weights = torch.load(darknet53_weights_path)
+    
+    # Create an instance of YOLOv3 model
     model = YOLOv3(num_classes=config.NUM_CLASSES).to(config.DEVICE)
-    initialize_weights(model)
+
+    # Copy Darknet-53 weights to YOLOv3's backbone
+    backbone_weights = model.backbone.state_dict()
+    for key in backbone_weights:
+        if 'conv' in key:
+            backbone_weights[key] = darknet53_weights[key]
+
+    # Load the updated backbone weights into YOLOv3 model
+    # Now, the Darknet-53 weights obtained from training on ImageNet are copied to the Darknet-53 part of YOLOv3's
+    # architecture in the model object.
+    model.backbone.load_state_dict(backbone_weights)
 
     # creating an instance of the Adam optimizer
     optimizer = optim.Adam(
