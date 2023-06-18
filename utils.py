@@ -10,6 +10,7 @@ from collections import Counter
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+
 # iou_width_height assumes that the boxes are represented as (width, height) pairs,
 # while intersection_over_union assumes that the boxes are represented as (x1, y1, x2, y2)
 # or (center_x, center_y, width, height).
@@ -28,7 +29,7 @@ def iou_width_height(boxes1, boxes2):
         boxes1[..., 1], boxes2[..., 1]
     )
     union = (
-        boxes1[..., 0] * boxes1[..., 1] + boxes2[..., 0] * boxes2[..., 1] - intersection
+            boxes1[..., 0] * boxes1[..., 1] + boxes2[..., 0] * boxes2[..., 1] - intersection
     )
     return intersection / union
 
@@ -113,12 +114,12 @@ def non_max_suppression(bboxes, iou_threshold, threshold, box_format="corners"):
             box
             for box in bboxes
             if box[0] != chosen_box[0]
-            or intersection_over_union(
+               or intersection_over_union(
                 torch.tensor(chosen_box[2:]),
                 torch.tensor(box[2:]),
                 box_format=box_format,
             )
-            < iou_threshold
+               < iou_threshold
         ]
 
         bboxes_after_nms.append(chosen_box)
@@ -127,7 +128,7 @@ def non_max_suppression(bboxes, iou_threshold, threshold, box_format="corners"):
 
 
 def mean_average_precision(
-    pred_boxes, true_boxes, iou_threshold=0.5, box_format="midpoint", num_classes=20
+        pred_boxes, true_boxes, iou_threshold=0.5, box_format="midpoint", num_classes=20
 ):
     """
     Video explanation of this function:
@@ -221,7 +222,7 @@ def mean_average_precision(
                 else:
                     FP[detection_idx] = 1
 
-            # if IOU is lower then the detection is a false positive
+            # if IOU is lower than the detection is a false positive
             else:
                 FP[detection_idx] = 1
 
@@ -240,7 +241,7 @@ def mean_average_precision(
 def plot_image(image, boxes):
     """Plots predicted bounding boxes on the image"""
     cmap = plt.get_cmap("tab20b")
-    class_labels = config.COCO_LABELS if config.DATASET=='COCO' else config.PASCAL_CLASSES
+    class_labels = config.COCO_LABELS if config.DATASET == 'COCO' else config.PASCAL_CLASSES
     colors = [cmap(i) for i in np.linspace(0, 1, len(class_labels))]
     im = np.array(image)
     height, width, _ = im.shape
@@ -283,13 +284,13 @@ def plot_image(image, boxes):
 
 
 def get_evaluation_bboxes(
-    loader,
-    model,
-    iou_threshold,
-    anchors,
-    threshold,
-    box_format="midpoint",
-    device="cuda",
+        loader,
+        model,
+        iou_threshold,
+        anchors,
+        threshold,
+        box_format="midpoint",
+        device="cuda",
 ):
     # make sure model is in eval before get bboxes
     model.eval()
@@ -378,6 +379,7 @@ def cells_to_bboxes(predictions, anchors, S, is_preds=True):
     converted_bboxes = torch.cat((best_class, scores, x, y, w_h), dim=-1).reshape(BATCH_SIZE, num_anchors * S * S, 6)
     return converted_bboxes.tolist()
 
+
 def check_class_accuracy(model, loader, threshold, dist_threshold):
     # nn.Module has the train() and eval() methods built-in, which are used to switch the model to train or eval mode.
     # When the model is in training mode (i.e., after calling model.train()), it computes gradients and updates its
@@ -413,6 +415,7 @@ def check_class_accuracy(model, loader, threshold, dist_threshold):
         with torch.no_grad():
             out = model(x)
 
+        # 3 iterations, 1 for each scale
         for i in range(3):
             y[i] = y[i].to(config.DEVICE)
             # Here, y[i][..., 0] represents the first channel of the ground truth tensor y for the i-th scale of the
@@ -422,15 +425,15 @@ def check_class_accuracy(model, loader, threshold, dist_threshold):
             # where True corresponds to the indices in y[i][..., 0] that have a value of 1 (i.e., a detected object).
             # obj is a boolean tensor which has a value of True at the index where an object is present in the anchor
             # box and False otherwise.
-            obj = y[i][..., 0] == 1 # in paper this is Iobj_i
+            obj = y[i][..., 0] == 1  # in paper this is Iobj_i
             noobj = y[i][..., 0] == 0  # in paper this is Iobj_i
 
             # 0th index is objectness, 1st to 4th is bounding box info, 5th is dist.
             # after 5th, we have the class predictions. Calculates the sum of all True values in the resulting tensor.
             correct_class += torch.sum(
                 # finds the class prediction with the highest confidence score for each bounding box where an object is
-                # present in the ground truth. Here, [..., 6:] means to take all dimensions after the sixth one.
-                torch.argmax(out[i][..., 6:][obj], dim=-1) == y[i][..., 6][obj]
+                # present in the ground truth. Here, [..., :7] means to take all dimensions until the seventh one.
+                torch.argmax(out[i][..., :7][obj], dim=-1) == y[i][..., 6][obj]
             )
             tot_class_preds += torch.sum(obj)
 
@@ -446,16 +449,26 @@ def check_class_accuracy(model, loader, threshold, dist_threshold):
                 # computes the absolute difference between the predicted and true distances for each bounding box where
                 # an object is present in the ground truth. 0th index is objectness, 1st to 4th is bounding box info,
                 # 5th is dist.
-                torch.abs(out[i][..., 5][obj] - y[i][..., 5][obj]) <= dist_threshold
+                torch.abs(out[i][..., -1][obj] - y[i][..., -1][obj]) <= dist_threshold
             )
             tot_dist += torch.sum(obj)
 
-    print(f"Class accuracy is: {(correct_class/(tot_class_preds+1e-16))*100:2f}%")
-    print(f"No obj accuracy is: {(correct_noobj/(tot_noobj+1e-16))*100:2f}%")
-    print(f"Obj accuracy is: {(correct_obj/(tot_obj+1e-16))*100:2f}%")
-    print(f"Distance accuracy is: {(correct_dist / (tot_dist + 1e-16)) * 100:2f}%")
+    class_accuracy = (correct_class / (tot_class_preds + 1e-16)) * 100
+    no_obj_accuracy = (correct_noobj / (tot_noobj + 1e-16)) * 100
+    obj_accuracy = (correct_obj / (tot_obj + 1e-16)) * 100
+    distance_accuracy = (correct_dist / (tot_dist + 1e-16)) * 100
+
+    print("correct distance: ", correct_dist, "\ntotal_pred: ", tot_dist)
+    print("correct noobj: ", correct_noobj, "\ntotal_noobj: ", tot_noobj)
+    print("correct class: ", correct_class, "\ntotal_pred: ", tot_class_preds)
+
+    print(f"Class accuracy is: {class_accuracy:2f}%")
+    print(f"Distance accuracy is: {distance_accuracy:2f}%")
+
     # Set the model back to training mode
     model.train()
+
+    return class_accuracy, obj_accuracy, no_obj_accuracy, distance_accuracy
 
 
 def get_mean_std(loader):
@@ -497,26 +510,11 @@ def load_checkpoint(checkpoint_file, model, optimizer, lr):
 
 
 # create PyTorch data loaders for training, testing, and evaluation
-def get_loaders(train_csv_path, test_csv_path):
+def get_loaders():
     from dataset import YOLODataset
 
     IMAGE_SIZE = config.IMAGE_SIZE
-    train_dataset = YOLODataset(
-        train_csv_path,
-        transform=config.train_transforms,
-        S=[IMAGE_SIZE // 32, IMAGE_SIZE // 16, IMAGE_SIZE // 8],
-        img_dir=config.IMG_DIR,
-        label_dir=config.LABEL_DIR,
-        anchors=config.ANCHORS,
-    )
-    test_dataset = YOLODataset(
-        test_csv_path,
-        transform=config.test_transforms,
-        S=[IMAGE_SIZE // 32, IMAGE_SIZE // 16, IMAGE_SIZE // 8],
-        img_dir=config.IMG_DIR,
-        label_dir=config.LABEL_DIR,
-        anchors=config.ANCHORS,
-    )
+    train_dataset = YOLODataset("Dataset/labels.txt")
 
     # DataLoader objects are used to iterate over the data during training and testing.
     train_loader = DataLoader(
@@ -527,33 +525,28 @@ def get_loaders(train_csv_path, test_csv_path):
         shuffle=True,
         drop_last=False,
     )
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=config.BATCH_SIZE,
-        num_workers=config.NUM_WORKERS,
-        pin_memory=config.PIN_MEMORY,
-        shuffle=False,
-        drop_last=False,
-    )
+    # test_loader = DataLoader(
+    #     dataset=test_dataset,
+    #     batch_size=config.BATCH_SIZE,
+    #     num_workers=config.NUM_WORKERS,
+    #     pin_memory=config.PIN_MEMORY,
+    #     shuffle=False,
+    #     drop_last=False,
+    #
+    # )
+    #
+    # train_eval_dataset = YOLODataset("Dataset/labels.txt")
+    # train_eval_loader = DataLoader(
+    #     dataset=train_eval_dataset,
+    #     batch_size=config.BATCH_SIZE,
+    #     num_workers=config.NUM_WORKERS,
+    #     pin_memory=config.PIN_MEMORY,
+    #     shuffle=False,
+    #     drop_last=False,
+    #
+    # )
 
-    train_eval_dataset = YOLODataset(
-        train_csv_path,
-        transform=config.test_transforms,
-        S=[IMAGE_SIZE // 32, IMAGE_SIZE // 16, IMAGE_SIZE // 8],
-        img_dir=config.IMG_DIR,
-        label_dir=config.LABEL_DIR,
-        anchors=config.ANCHORS,
-    )
-    train_eval_loader = DataLoader(
-        dataset=train_eval_dataset,
-        batch_size=config.BATCH_SIZE,
-        num_workers=config.NUM_WORKERS,
-        pin_memory=config.PIN_MEMORY,
-        shuffle=False,
-        drop_last=False,
-    )
-
-    return train_loader, test_loader, train_eval_loader
+    return train_loader
 
 
 def plot_couple_examples(model, loader, thresh, iou_thresh, anchors):
@@ -578,7 +571,7 @@ def plot_couple_examples(model, loader, thresh, iou_thresh, anchors):
         nms_boxes = non_max_suppression(
             bboxes[i], iou_threshold=iou_thresh, threshold=thresh, box_format="midpoint",
         )
-        plot_image(x[i].permute(1,2,0).detach().cpu(), nms_boxes)
+        plot_image(x[i].permute(1, 2, 0).detach().cpu(), nms_boxes)
 
 
 # sets the random seed for various libraries in order to ensure that the random

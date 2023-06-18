@@ -1,3 +1,17 @@
+# training and evaluation
+1) hyper-parameter tuning (cross validation)
+2) Once we tune the hyper-parameters (means we have the values for them), we can
+   perform cross-validation to do performance testing.
+3) To create the model, we can run the whole dataset through the model and
+   assume that the model will perform at least as the result reported by cross validation
+
+# hyper-parameters
+1) OBJ_PRESENCE_CONFIDENCE_THRESHOLD [0.35,0.4,0.45,0.5]
+2) CONF_DIST_THRESHOLD  [0.5 : 0.2 : 1.5] values are given in meters
+3) LEARNING_RATE [0.0001, 0.001, 0.005, 0.01]
+
+
+
 line 78 (Residual blocks):
 
 Q) why are two CNNBlocks being used and the kernel size of the first one is 1 and second one is 3?
