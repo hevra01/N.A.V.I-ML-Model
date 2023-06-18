@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 
 import config
-import utils
 from utils import intersection_over_union
 
 
@@ -98,7 +97,6 @@ class YoloLoss(nn.Module):
         dist_targets = target[..., 6][obj].clone()
         # the model's last prediction is distance hence -1 to get the last element
         dist_predictions = predictions[..., -1][obj].clone()
-        # dist_loss = torch.sqrt(self.mse(torch.log(dist_predictions + 1), torch.log(dist_targets + 1))) # mean squared logarithmic error
         correct_dist = (abs(dist_predictions - dist_targets)) <= config.CONF_DIST_THRESHOLD
         correct_dist = torch.sum(correct_dist)
         dist_loss = 1 - (correct_dist.item() / dist_targets.shape[0])

@@ -7,7 +7,6 @@ from albumentations.pytorch import ToTensorV2
 # for that, we will need to find the weights responsible from distanc estimation
 # and freeze them. If we can't find them, then we shouldn't do augmentation
 # from albumentations.pytorch import ToTensorV2
-from utils import seed_everything
 
 DATASET = 'KITTI'
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -81,14 +80,3 @@ train_transforms = A.Compose(
         ToTensorV2(),
     ]
 )
-
-# change classes based on kitti
-KITTI_CLASSES = [
-    "car",
-    "cyclist",
-    "pedestrian",
-    "van",
-    "truck",
-    "tram",
-    "person sitting"
-]

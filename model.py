@@ -1,12 +1,5 @@
-# this file includes the model architecture
-# "change" is the keyword used to show the places where the code needs to be changed
-# according to dist-yolo rather than sole yolo
-
 import torch
 import torch.nn as nn
-
-
-
 
 """ 
 Information about architecture config:
@@ -16,9 +9,6 @@ List is structured by "B" indicating a residual block followed by the number of 
 "S" is for a scale prediction block and computing the yolo loss
 "U" is for upsampling the feature map
 """
-# change: we might need to add additional conv layers to perform distance estimation
-# I suppose the additional layers need to be added to darknet because that is where 
-# feature extraction is taking place. consider how scaling might affect distance estimation.
 config = [
     (32, 3, 1),
     (64, 3, 2),
@@ -49,6 +39,7 @@ config = [
     "S",
 ]
 
+
 # the most common building blocks of the architecture
 # will be implemented as separate classes to avoid repeating code
 
@@ -65,7 +56,7 @@ class CNNBlock(nn.Module):
         super(CNNBlock, self).__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, bias=not bn_act, **kwargs)
         self.bn = nn.BatchNorm2d(out_channels)
-        self.leaky = nn.LeakyReLU(0.1,inplace=False)
+        self.leaky = nn.LeakyReLU(0.1, inplace=False)
         self.use_bn_act = bn_act
 
     def forward(self, x):
@@ -78,7 +69,6 @@ class CNNBlock(nn.Module):
             return self.leaky(self.bn(self.conv(x)))
         else:
             return self.conv(x)
-
 
 
 # The residual block is a combination of two convolutional blocks (CNNBlock)
@@ -107,7 +97,6 @@ class ResidualBlock(nn.Module):
         return x
 
 
-
 # The last predefined block we will use is the ScalePrediction which is the last two
 # convolutional layers leading up to the prediction for each scale. 
 
@@ -127,9 +116,9 @@ class ScalePrediction(nn.Module):
     def forward(self, x):
         return (
             self.pred(x)
-             # 3 represents anchors_per_scale
+            # 3 represents anchors_per_scale
             .reshape(x.shape[0], 3, self.num_classes + 6, x.shape[2], x.shape[3])
-            .permute(0, 1, 3, 4, 2)   #[[0.3, 0.5, 0.4, 0.2, 0.7, 0.8, 0.9], bb, c, d]
+            .permute(0, 1, 3, 4, 2)  # [[0.3, 0.5, 0.4, 0.2, 0.7, 0.8, 0.9], bb, c, d]
         )
 
 
@@ -175,7 +164,6 @@ class YOLOv3(nn.Module):
                 route_connections.pop()
 
         return outputs
-
 
     def _create_conv_layers(self):
         layers = nn.ModuleList()

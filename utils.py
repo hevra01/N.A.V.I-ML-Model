@@ -109,7 +109,6 @@ def non_max_suppression(bboxes, iou_threshold, threshold, box_format="corners"):
 
     while bboxes:
         chosen_box = bboxes.pop(0)
-        print(bboxes)
 
         bboxes = [
             box
@@ -223,7 +222,7 @@ def mean_average_precision(
                 else:
                     FP[detection_idx] = 1
 
-            # if IOU is lower then the detection is a false positive
+            # if IOU is lower than the detection is a false positive
             else:
                 FP[detection_idx] = 1
 
@@ -464,8 +463,6 @@ def check_class_accuracy(model, loader, threshold, dist_threshold):
     print("correct class: ", correct_class, "\ntotal_pred: ", tot_class_preds)
 
     print(f"Class accuracy is: {class_accuracy:2f}%")
-    print(f"No obj accuracy is: {no_obj_accuracy:2f}%")
-    print(f"Obj accuracy is: {obj_accuracy:2f}%")
     print(f"Distance accuracy is: {distance_accuracy:2f}%")
 
     # Set the model back to training mode

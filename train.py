@@ -1,34 +1,23 @@
-import numpy
-from torch import nn
-from torch.utils.data import DataLoader
-from torch.utils.data import Subset
 import itertools
-import cv2
-from scipy import stats
-from torchvision import models
-
-from dataset import YOLODataset
-import config
-import torch
-import torch.optim as optim
-from sklearn.model_selection import KFold
-import numpy as np
 import pickle
 
-from dataset import YOLODataset
-from model import YOLOv3
+import cv2
+import numpy as np
+import torch
+import torch.optim as optim
+from scipy import stats
+from sklearn.model_selection import KFold
+from torch.utils.data import DataLoader
+from torch.utils.data import Subset
 from tqdm import tqdm
-from utils import (
-    mean_average_precision,
-    cells_to_bboxes,
-    get_evaluation_bboxes,
-    save_checkpoint,
-    load_checkpoint,
-    check_class_accuracy,
-    get_loaders,
-    plot_couple_examples
-)
+
+import config
 from cost import YoloLoss
+from model import YOLOv3
+from utils import (
+    check_class_accuracy,
+    get_loaders
+)
 
 torch.backends.cudnn.benchmark = True
 
@@ -294,28 +283,8 @@ def main():
     torch.cuda.empty_cache()
     # defining the necessary components for training a YOLOv3
     # creating an instance of the model class
-    # model = YOLOv3(num_classes=config.NUM_CLASSES).to(config.DEVICE)
-    # model.load_darknet_weights(weights_path="yolov31.weights")
-    # initialize_weights(model)
-
-    # recent
-    # Load the Darknet-53 weights (previously trained on ImageNet)
-    darknet53_weights_path = "darknet53_weights.pth"
-    darknet53_weights = torch.load(darknet53_weights_path)
-    
-    # Create an instance of YOLOv3 model
     model = YOLOv3(num_classes=config.NUM_CLASSES).to(config.DEVICE)
-
-    # Copy Darknet-53 weights to YOLOv3's backbone
-    backbone_weights = model.backbone.state_dict()
-    for key in backbone_weights:
-        if 'conv' in key:
-            backbone_weights[key] = darknet53_weights[key]
-
-    # Load the updated backbone weights into YOLOv3 model
-    # Now, the Darknet-53 weights obtained from training on ImageNet are copied to the Darknet-53 part of YOLOv3's
-    # architecture in the model object.
-    model.backbone.load_state_dict(backbone_weights)
+    initialize_weights(model)
 
     # creating an instance of the Adam optimizer
     optimizer = optim.Adam(
@@ -337,10 +306,14 @@ def main():
     # contain the file paths and annotations for each image. These data loaders are
     # used later in the training loop.
     train_loader = get_loaders()
-    # whole_dataset = YOLODataset("Dataset/labels.txt")
 
-    for epoch in range(2):
+    for epoch in range(config.NUM_EPOCHS):
         train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors)
+        if config.NUM_EPOCHS / 4 == epoch:
+            name = 'epoch number {}.pk'.format(epoch)
+            with open(name, 'wb') as file:
+                pickle.dump(model, file)
+                file.close()
 
     from PIL import Image
     transform = config.train_transforms
@@ -348,29 +321,6 @@ def main():
     augmentations = transform(image=img)
     img = augmentations["image"]
     predict(model, img.unsqueeze(0).to(config.DEVICE))
-
-    # perform grid search for hyperparameter tuning based on the hyperparameter values
-    # present in the config file. if you want to change the range of values for hyperparameters,
-    # please update the hyper_parameters_dictionary in config file.
-    hyperparameter_dictionary = config.hyper_parameters_dictionary
-    best_hyperparameter_values = grid_search_hyperparameter_tuning(hyperparameter_dictionary, model, loss_fn, scaler,
-                                                                   whole_dataset, scaled_anchors)
-
-    best_hyperparameter_values = {}
-    # perform cross validation to get the average performance of the model
-    # based on the best hyperparameters obtained during cross-validation
-    avg_class_accuracy, avg_obj_accuracy, avg_no_obj_accuracy, avg_distance_accuracy = cross_validation(model,
-                                                                                                        optimizer,
-                                                                                                        loss_fn, scaler,
-                                                                                                        whole_dataset,
-                                                                                                        scaled_anchors,
-                                                                                                        best_hyperparameter_values)
-
-    print("\nModel performance based on cross validation:")
-    print(f"Class accuracy is: {avg_class_accuracy:2f}%")
-    print(f"No obj accuracy is: {avg_obj_accuracy:2f}%")
-    print(f"Obj accuracy is: {avg_no_obj_accuracy:2f}%")
-    print(f"Distance accuracy is: {avg_distance_accuracy:2f}%")
 
     # train the model with the whole dataset since now we do know the performance of the model,
     # no need to split the dataset into train and test to test the model again. we can assume
@@ -381,30 +331,9 @@ def main():
         pickle.dump(model, file)
         file.close()
 
-    # load a previously saved model checkpoint from the specified file config.CHECKPOINT_FILE,
-    # and restore the state of the model and optimizer objects so that training can continue
-    # from the previously saved point.
-    # if config.LOAD_MODEL:
-    #     load_checkpoint(
-    #         config.CHECKPOINT_FILE, model, optimizer, config.LEARNING_RATE
-    #     )
-    #
-    #
-    # for epoch in range(config.NUM_EPOCHS):
-    #     train_fn(train_loader, model, optimizer, loss_fn, scaler, scaled_anchors)
-
-    # if config.SAVE_MODEL:
-    #    save_checkpoint(model, optimizer, filename=f"checkpoint.pth.tar")
-
-    # print(f"Currently epoch {epoch}")
-    # print("On Train Eval loader:")
-    # print("On Train loader:")
+    # model evaluation below
     # check_class_accuracy(model, train_loader, threshold=config.CONF_THRESHOLD)
 
-    # evaluating the model's performance on the test dataset at regular intervals (every 3 epochs) during training.
-    # if epoch > 0 and epoch % 3 == 0:
-    #     check_class_accuracy(model, test_loader, threshold=config.OBJ_PRESENCE_CONFIDENCE_THRESHOLD,
-    #                          dist_threshold=config.CONF_DIST_THRESHOLD)
 
     # this is another performance metric. it measures how accurate the alignment of bb's are.
     # pred_boxes, true_boxes = get_evaluation_bboxes(
